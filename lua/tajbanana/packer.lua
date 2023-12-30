@@ -14,21 +14,24 @@ return require('packer').startup(function(use)
 	}
 
     use ('navarasu/onedark.nvim')
-	use ('nvim-treesitter/nvim-treesitter', {run = ':TSUpdate'})
-	use ('nvim-treesitter/playground')
-	use ('theprimeagen/harpoon')
-	use ('mbbill/undotree')
-	use ('tpope/vim-fugitive')
+    use ('nvim-treesitter/nvim-treesitter', {run = ':TSUpdate'})
+    use ('nvim-treesitter/playground')
+    use ('theprimeagen/harpoon')
+    use ('mbbill/undotree')
+    use ('tpope/vim-fugitive')
     use ('nvim-tree/nvim-tree.lua')
     use ('nvim-tree/nvim-web-devicons')
-
-	use {
-		'VonHeikemen/lsp-zero.nvim',
-		branch = 'v3.x',
-		requires = {
-			--- Uncomment these if you want to manage LSP servers from neovim
-			-- {'williamboman/mason.nvim'},
-			-- {'williamboman/mason-lspconfig.nvim'},
+    use {
+        'nvim-lualine/lualine.nvim',
+        requires = { 'nvim-tree/nvim-web-devicons', opt = true }
+    }
+    use {
+        'VonHeikemen/lsp-zero.nvim',
+        branch = 'v3.x',
+        requires = {
+            --- Uncomment these if you want to manage LSP servers from neovim
+            -- {'williamboman/mason.nvim'},
+            -- {'williamboman/mason-lspconfig.nvim'},
 
 			-- LSP Support
 			{'neovim/nvim-lspconfig'},

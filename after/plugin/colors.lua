@@ -1,6 +1,9 @@
 function ColorMyTerminal()
     require('onedark').setup {
-    style = 'warmer'
+    style = 'warmer',
+    colors = {
+        red = '#bf6528'
+    }
 }
     require('onedark').load()
 	vim.cmd("colorscheme onedark")

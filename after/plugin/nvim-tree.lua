@@ -3,5 +3,5 @@ vim.g.loaded_nerwPlugin = 1
 
 require('nvim-tree').setup()
 
-vim.keymap.set('n', '<c-n>', ':NvimTreeFindFileToggle<CR>')
+vim.keymap.set('n', '<A-1>', ':NvimTreeFindFileToggle<CR>')
 
