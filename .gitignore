@@ -9,3 +9,4 @@
 /.idea
 
 packer_compiled.lua
+.DS_store
