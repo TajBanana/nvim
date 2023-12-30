@@ -1,6 +1,6 @@
 function ColorMyTerminal()
     require('onedark').setup {
-    style = 'warmer',
+    style = 'darker',
     colors = {
         red = '#bf6528'
     }
