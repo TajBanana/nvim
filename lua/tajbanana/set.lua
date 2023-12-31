@@ -31,3 +31,5 @@ vim.opt.updatetime = 50
 vim.opt.colorcolumn = "100"
 
 vim.cmd("set splitright")
+vim.cmd("set clipboard+=unnamedplus")
+
