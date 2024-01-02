@@ -23,13 +23,36 @@ local cmp = require('cmp')
 local cmp_select = {behavior = cmp.SelectBehavior.Select}
 
 cmp.setup({
+    snippet = {
+        expand = function(args)
+            require('luasnip').lsp_expand(args.body) -- For `luasnip` users.
+        end,
+    },
+    window = {
+        completion = cmp.config.window.bordered(),
+        documentation = cmp.config.window.bordered(),
+    },
     mapping = cmp.mapping.preset.insert({
         ['<C-p>'] = cmp.mapping.select_prev_item(cmp_select),
         ['<C-n>'] = cmp.mapping.select_next_item(cmp_select),
         ['<C-y>'] = cmp.mapping.confirm({ select = true }),
         ['<C-Space>'] = cmp.mapping.complete(),
+    }),
+    sources = cmp.config.sources({
+        { name = 'nvim_lsp' },
+        { name = 'luasnip' }, -- For luasnip users.
+    }, {
+        { name = 'buffer' },
     })
 })
+-- The nvim-cmp almost supports LSP's capabilities so You should advertise it to LSP servers..
+local capabilities = require('cmp_nvim_lsp').default_capabilities()
+
+-- An example for configuring `clangd` LSP to use nvim-cmp as a completion engine
+require('lspconfig').clangd.setup {
+  capabilities = capabilities,
+  ...  -- other lspconfig configs
+}
 
 lsp_zero.set_preferences({
     suggest_lsp_servers = false,
@@ -40,6 +63,8 @@ lsp_zero.set_preferences({
         info = 'I'
     }
 })
+
+require("luasnip.loaders.from_vscode").lazy_load()
 
 lsp_zero.on_attach(function(client, bufnr)
   local opts = {buffer = bufnr, remap = false}
