@@ -1,30 +1,48 @@
 require('onedark').setup {
     style = 'deep',
     colors = {
-        red = '#f37759',
     }
 }
 
 require('onedark').setup {
-    highlights= {
-        ['@conditional'] = {fg = '#7096fd'},
-        ['@constructor'] = {fg = '#e9af4c'},
-        ['@lsp.type.class.typescriptreact'] = {fg = '#e9af4c'},
-        ['@string'] = {fg = '#b8e67b'},
-        ['@function'] = {fg = '#7096fe'},
-        ['@method'] = {fg = '#7096fd'},
-        ['@type.builtin'] = {fg = '#efbd5d'},
-        ['@variable'] = {fg = '#ffffff'},
-        ['@property'] = {fg = '#ffffff'},
-        ['@operator'] = {fg = '#85cdd6'},
-        ['@punctuation.bracket'] = {fg = '#ababab'},
-        ['@lsp.type.variable'] = {fg = '#ffffff'},
-        ['@lsp.type.interface'] = {fg = '#b8e67b', fmt = 'italic'},
-        ['@lsp.type.property'] = {fg = '#bebebe'},
-        ['@lsp.type.method'] = {fg = '#7096fd'},
-        ['@lsp.type.function.groovy'] = {fg = '#7096fd'},
-        ['@lsp.typemod.function.defaultLibrary'] = {fg = '#7096fd'},
+    colors = {
+        red = '#f38759',
+        pure_white = "#ffffff",
+        method_blue = "#7096fd",
+        custom_yellow = "#e9af4c",
+        custom_green = "#a6e058",
+        property_grey = "#cfcfcf",
+        light_blue = "#85cdd6",
+        react_component = "#60c2d1",
+        bracket = "#ababab",
+        string = "#b7d989"
+    },
 
+    highlights= {
+        ['@conditional'] = {fg = '$method_blue'},
+        ['@constructor'] = {fg = '$custom_yellow'},
+        ['@string'] = {fg = '$string'},
+        ['@function'] = {fg = '#method_blue'},
+        ['@method'] = {fg = '$method_blue'},
+        ['@type.builtin'] = {fg = '#efbd5d'},
+        ['@variable'] = {fg = '$pure_white'},
+        ['@property'] = {fg = '$pure_white'},
+        ['@operator'] = {fg = '$light_blue'},
+        ['@punctuation.bracket'] = {fg = '$bracket'},
+
+        -- lsp
+        ['@lsp.type.variable'] = {fg = '$pure_white'},
+        ['@lsp.type.interface'] = {fg = '$custom_green', fmt = 'italic'},
+        ['@lsp.type.property'] = {fg = '$property_grey'},
+        ['@lsp.type.method'] = {fg = '$method_blue'},
+        ['@lsp.type.function.groovy'] = {fg = '$method_blue'},
+
+        -- typescriptreact
+        ['@constructor.tsx'] = {fg = '$react_component', fmt = 'bold'},
+        ['@lsp.typemod.function.defaultLibrary'] = {fg = '$method_blue'},
+        ['@lsp.type.function.typescriptreact'] = {fg = '$method_blue'},
+        ['@lsp.type.class.typescriptreact'] = {fg = '$custom_yellow'},
+        ['@tag.attribute.tsx'] = {fg = '$yellow', fmt = 'italic'},
     }
 }
 
