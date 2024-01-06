@@ -1,0 +1,11 @@
+" add this to the root directory to configure ideavim
+let mapleader=" "
+
+set incsearch
+set scrolloff=8
+
+map <leader>cl :noh<CR>
+nnoremap <leader>ff :action SearchEverywhere<CR>
+nnoremap <leader>fw :action FindInPath<CR>
+nnoremap <leader>gd :action GotoDeclaration<CR>
+
