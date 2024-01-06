@@ -39,6 +39,7 @@ require('onedark').setup {
 
         -- typescriptreact
         ['@constructor.tsx'] = {fg = '$react_component', fmt = 'bold'},
+        ['@constructor.javascript'] = {fg = '$react_component', fmt = 'bold'},
         ['@lsp.typemod.function.defaultLibrary'] = {fg = '$method_blue'},
         ['@lsp.type.function.typescriptreact'] = {fg = '$method_blue'},
         ['@lsp.type.class.typescriptreact'] = {fg = '$custom_yellow'},
