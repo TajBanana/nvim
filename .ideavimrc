@@ -9,3 +9,5 @@ nnoremap <leader>ff :action SearchEverywhere<CR>
 nnoremap <leader>fw :action FindInPath<CR>
 nnoremap <leader>gd :action GotoDeclaration<CR>
 
+set clipboard=unnamed
+
