@@ -1,4 +1,4 @@
-vim.g.mapleader=" "
+vim.g.mapleader = " "
 
 vim.opt.nu = true
 vim.opt.relativenumber = true
@@ -33,4 +33,4 @@ vim.opt.colorcolumn = "100"
 vim.cmd("set splitright")
 vim.cmd("set clipboard+=unnamedplus")
 
-vim.api.nvim_set_hl(0, 'LineNr', { fg = '#737373'} )
+vim.api.nvim_set_hl(0, "LineNr", { fg = "#737373" })

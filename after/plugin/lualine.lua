@@ -1,14 +1,14 @@
-require('lualine').setup {
+require("lualine").setup({
     options = {
         icons_enabled = true,
-        theme = 'onedark',
+        theme = "onedark",
     },
     sections = {
         lualine_a = {
             {
-                'filename',
+                "filename",
                 path = 1,
-            }
-        }
-    }
-}
+            },
+        },
+    },
+})
