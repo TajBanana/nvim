@@ -42,6 +42,7 @@ require("onedark").setup({
         ["@lsp.typemod.function.defaultLibrary"] = { fg = "$method_blue" },
         ["@lsp.type.function.typescriptreact"] = { fg = "$method_blue" },
         ["@lsp.type.class.typescriptreact"] = { fg = "$custom_yellow" },
+        ["@lsp.type.function.typescript"] = { fg = "$method_blue" },
         ["@tag.attribute.tsx"] = { fg = "$yellow", fmt = "italic" },
     },
 })
