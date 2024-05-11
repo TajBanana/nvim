@@ -11,3 +11,5 @@ nnoremap <leader>gd :action GotoDeclaration<CR>
 
 set clipboard=unnamed
 
+Plug 'tpope/vim-surround'
+
