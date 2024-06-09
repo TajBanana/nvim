@@ -66,4 +66,5 @@ return require("packer").startup(function(use)
             })
         end,
     })
+    use 'm4xshen/autoclose.nvim'
 end)
