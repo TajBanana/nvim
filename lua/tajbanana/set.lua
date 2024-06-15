@@ -2,6 +2,7 @@ vim.g.mapleader = " "
 
 vim.opt.nu = true
 vim.opt.relativenumber = true
+vim.opt.autowriteall = true
 
 vim.opt.tabstop = 4
 vim.opt.softtabstop = 4
