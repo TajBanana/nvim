@@ -83,5 +83,13 @@ config.colors = {
     inactive_tab_edge = '#575757',
   },
 }
+
+config.window_padding = {
+    left = 2,
+    right = 2,
+    top = 0,
+    bottom = 0,
+}
+
 -- and finally, return the configuration to wezterm
 return config

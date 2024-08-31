@@ -15,6 +15,10 @@ telescope.setup({
 	},
 })
 
+vim.keymap.set("n", "<leader>gb", function()
+	vim.cmd("Telescope git_branches")
+end)
+
 require("telescope").setup({
 	defaults = {
 		file_ignore_patterns = {
