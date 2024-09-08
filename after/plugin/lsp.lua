@@ -12,7 +12,6 @@ require("mason-lspconfig").setup({
         "tsserver",
         "lua_ls",
         "jdtls",
-        "tsserver",
         "eslint",
         "jsonls",
         "tailwindcss",
@@ -27,6 +26,17 @@ require("mason-lspconfig").setup({
         "html",
     },
     handlers = {
+        -- this function is here to prevent mason from breaking due to lspconfig changes
+        function(server_name)
+            if server_name == "tsserver" then
+                server_name = "ts_ls"
+            end
+            local capabilities = require("cmp_nvim_lsp").default_capabilities()
+            require("lspconfig")[server_name].setup({
+
+                capabilities = capabilities,
+            })
+        end,
         lsp_zero.default_setup,
         lua_ls = function()
             local lua_opts = lsp_zero.nvim_lua_ls()

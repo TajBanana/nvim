@@ -44,8 +44,10 @@ require("onedark").setup({
         ["@lsp.type.class.typescriptreact"] = { fg = "$custom_yellow" },
         ["@lsp.type.function.typescript"] = { fg = "$method_blue" },
         ["@tag.attribute.tsx"] = { fg = "$yellow", fmt = "italic" },
+        ["@tag.builtin.tsx"] = { fg = "$light_blue" },
+        ["@tag.tsx"] = { fg = "$yellow" },
+        ["@tag.delimiter.tsx"] = { fg = "$light_blue", fmt = "bold" },
 
-        -- kotlin
         ["@lsp.type.type.kotlin"] = { fg = "#00B6C9" }
     },
 })

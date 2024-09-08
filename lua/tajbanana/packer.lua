@@ -7,6 +7,12 @@ return require("packer").startup(function(use)
     -- Packer can manage itself
     use("wbthomason/packer.nvim")
 
+    use "nvim-lua/plenary.nvim"
+    use {
+        "ThePrimeagen/harpoon",
+        branch = "harpoon2",
+        requires = { { "nvim-lua/plenary.nvim" } }
+    }
     use({
         "nvim-telescope/telescope.nvim",
         tag = "0.1.5",
@@ -76,4 +82,5 @@ return require("packer").startup(function(use)
     use 'm4xshen/autoclose.nvim'
     use 'f-person/git-blame.nvim'
     use 'vim-test/vim-test'
+    -- use 'mg979/vim-visual-multi'
 end)
