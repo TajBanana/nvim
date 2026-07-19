@@ -7,7 +7,11 @@ local config = wezterm.config_builder()
 local action = wezterm.action
 
 -- This is where you actually apply your config choices
-config.font_size = 17.0
+config.font = wezterm.font_with_fallback({
+    "JetBrainsMono Nerd Font",
+    "Symbols Nerd Font Mono",
+})
+config.font_size = 16.0
 config.initial_rows = 48
 config.initial_cols = 160
 
