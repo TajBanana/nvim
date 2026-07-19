@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://skill-forge/review-branch/git-note.schema.json",
+  "title": "Review Git Note",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["review", "review_sha", "coverage", "report"],
+  "properties": {
+    "review": {
+      "type": "string",
+      "enum": ["branch_review"]
+    },
+    "review_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "coverage": {
+      "type": "string",
+      "enum": ["CUMULATIVE_FROM_BASE", "REPOSITORY_BASELINE"]
+    },
+    "report": { "type": "string", "pattern": "^docs/reviews/.+\\.md$" },
+    "base_ref": { "type": "string", "minLength": 1 },
+    "base_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "coverage": { "const": "CUMULATIVE_FROM_BASE" } } },
+      "then": { "required": ["base_ref", "base_sha"] }
+    },
+    {
+      "if": { "properties": { "coverage": { "const": "REPOSITORY_BASELINE" } } },
+      "then": {
+        "not": {
+          "anyOf": [{ "required": ["base_ref"] }, { "required": ["base_sha"] }]
+        }
+      }
+    }
+  ]
+}

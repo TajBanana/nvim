@@ -1,0 +1,1 @@
+../../.skillforge/rules/devtools-gitlab-ci/devtools-gitlab-ci.md

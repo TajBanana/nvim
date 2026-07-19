@@ -1,0 +1,52 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What This Is
+
+A personal Neovim configuration (~/.config/nvim) using **lazy.nvim** as the plugin manager. Also includes a `.wezterm.lua` (WezTerm terminal config) and `.ideavimrc` (IntelliJ IdeaVim config) in the same repo.
+
+Requires Neovim v0.9+. Uses native LSP (not null-ls).
+
+## Architecture
+
+**Entry point:** `init.lua` loads core settings then bootstraps lazy.nvim, which auto-discovers plugin specs from `lua/plugins/`.
+
+**Two key directories:**
+- `lua/tajbanana/set.lua` — Core Vim settings, keymaps, and custom functions (leader = Space). This is loaded first before any plugins.
+- `lua/plugins/` — Each file returns a lazy.nvim plugin spec table (or list of tables). Lazy auto-loads all files in this directory.
+
+**Plugin organization by file:**
+- `lsp.lua` — nvim-lspconfig + Mason (auto-installs LSP servers) + nvim-cmp (completion)
+- `colorscheme.lua` — onedark.nvim with a custom Material Darker-inspired palette and extensive treesitter/LSP highlight overrides
+- `telescope.lua` — Fuzzy finder (file search, grep, git branches)
+- `treesitter.lua` — Syntax highlighting with auto-install for parsers
+- `formatting.lua` — conform.nvim (format-on-demand, not auto-format)
+- `editor.lua` — Editing utilities (surround, comments, autoclose, undotree, vim-test)
+- `git.lua` — vim-fugitive, gitsigns, git-blame
+- `harpoon.lua` — Quick file navigation (harpoon2 branch) with Telescope integration
+- `ui.lua` — lualine, indent-blankline, nvim-tree (file explorer)
+
+## Key Conventions
+
+- **Plugin specs** follow lazy.nvim format: each `lua/plugins/*.lua` file returns a table with plugin name, dependencies, config/opts, and lazy-loading triggers (keys, event, cmd).
+- **Keymaps** are defined in two places: global keymaps in `lua/tajbanana/set.lua`, plugin-specific keymaps in the plugin spec's `keys` field or `config` function.
+- **LSP servers** are managed via Mason with `ensure_installed`; add new servers there. LSP keymaps are set via `LspAttach` autocmd.
+- **Formatters** are configured per-filetype in `formatting.lua` via conform.nvim's `formatters_by_ft`. Formatters must be installed via Mason (`:Mason`).
+- **Color customization** uses treesitter highlight groups and LSP semantic tokens in `colorscheme.lua`. Use `:Inspect` to find the highlight group under the cursor.
+
+## Symlinks
+
+The `.ideavimrc` should be symlinked to `~/.ideavimrc`:
+```
+ln -s ~/.config/nvim/.ideavimrc ~/.ideavimrc
+```
+
+## Validating Changes
+
+There is no build/test/lint step. To verify changes work:
+1. Open Neovim and check for errors: `:messages`
+2. Run `:checkhealth` to verify plugin health
+3. Run `:Lazy` to check plugin status and sync if needed
+4. For LSP changes: `:LspInfo` to verify server attachment
+5. For treesitter changes: `:TSInstallInfo` to check parser status
