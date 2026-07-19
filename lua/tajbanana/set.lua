@@ -35,6 +35,33 @@ vim.opt.colorcolumn = "100"
 vim.opt.splitright = true
 vim.opt.clipboard:append("unnamedplus")
 
+-- nvm is lazy-loaded in .zshrc, so node is usually missing from PATH when
+-- nvim starts and Mason's node-based LSP servers (ts_ls, yamlls, ...) die
+-- with exit 127. Prepend the newest nvm node unless node is already found.
+if vim.fn.executable("node") == 0 then
+    local bins = vim.fn.glob(vim.env.HOME .. "/.nvm/versions/node/*/bin", true, true)
+    table.sort(bins, function(a, b)
+        local maj_a, min_a = a:match("v(%d+)%.(%d+)")
+        local maj_b, min_b = b:match("v(%d+)%.(%d+)")
+        if maj_a ~= maj_b then return tonumber(maj_a) < tonumber(maj_b) end
+        return tonumber(min_a) < tonumber(min_b)
+    end)
+    if #bins > 0 then
+        vim.env.PATH = bins[#bins] .. ":" .. vim.env.PATH
+    end
+end
+
+-- rustup's toolchain proxies aren't on the default PATH (brew keeps them in
+-- its own prefix); rust-analyzer needs cargo/rustc visible to load workspaces
+if vim.fn.executable("cargo") == 0 then
+    for _, dir in ipairs({ vim.env.HOME .. "/.cargo/bin", "/opt/homebrew/opt/rustup/bin" }) do
+        if vim.fn.isdirectory(dir) == 1 then
+            vim.env.PATH = vim.env.PATH .. ":" .. dir
+            break
+        end
+    end
+end
+
 vim.api.nvim_set_hl(0, "LineNr", { fg = "#737373" })
 
 -- Set cursor blink rate (in milliseconds)
@@ -66,3 +93,45 @@ end
 -- Map F2 in both Normal and Terminal modes to the same function
 vim.keymap.set('n', '<F2>', ToggleTerminal, { silent = true })
 vim.keymap.set('t', '<F2>', [[<C-\><C-n>:lua ToggleTerminal()<CR>]], { silent = true })
+
+-- Incremental selection using native treesitter (like IntelliJ Option+Up/Down)
+local ts_node_stack = {}
+
+local function select_node(node)
+    local sr, sc, er, ec = node:range()
+    vim.api.nvim_buf_set_mark(0, "<", sr + 1, sc, {})
+    vim.api.nvim_buf_set_mark(0, ">", er + 1, ec - 1, {})
+    vim.cmd("normal! gv")
+end
+
+vim.keymap.set("n", "<M-Up>", function()
+    local node = vim.treesitter.get_node()
+    if node then
+        ts_node_stack = { node }
+        select_node(node)
+    end
+end, { desc = "Start incremental selection" })
+
+vim.keymap.set("n", "<M-Down>", function()
+    local node = vim.treesitter.get_node()
+    if node then
+        ts_node_stack = { node }
+        select_node(node)
+    end
+end, { desc = "Start incremental selection" })
+
+vim.keymap.set("x", "<M-Up>", function()
+    local current = ts_node_stack[#ts_node_stack]
+    local node = current and current:parent() or vim.treesitter.get_node()
+    if node then
+        table.insert(ts_node_stack, node)
+        select_node(node)
+    end
+end, { desc = "Expand selection" })
+
+vim.keymap.set("x", "<M-Down>", function()
+    if #ts_node_stack > 1 then
+        table.remove(ts_node_stack)
+        select_node(ts_node_stack[#ts_node_stack])
+    end
+end, { desc = "Shrink selection" })
