@@ -20,18 +20,19 @@ return {
             },
             highlights = {
                 -- keywords: base + all subtypes (onedark base overrides some, so be explicit)
-                ["@keyword"]               = { fg = "$md_cyan" },
-                ["@keyword.import"]        = { fg = "$md_cyan" },  -- import/export/require
-                ["@keyword.return"]        = { fg = "$md_cyan" },  -- return
-                ["@keyword.repeat"]        = { fg = "$md_cyan" },  -- for/while/do
-                ["@keyword.operator"]      = { fg = "$md_cyan" },  -- typeof/instanceof/in/of/new
-                ["@keyword.function"]      = { fg = "$md_cyan" },  -- function keyword
-                ["@keyword.coroutine"]     = { fg = "$md_cyan" },  -- async/await
-                ["@keyword.exception"]     = { fg = "$md_cyan" },  -- try/catch/throw/finally
-                ["@keyword.modifier"]      = { fg = "$md_cyan" },  -- public/private/static/final/readonly
-                ["@keyword.conditional"]   = { fg = "$md_cyan" },  -- if/else/switch (newer name)
-                ["@keyword.directive"]     = { fg = "$md_cyan" },  -- preprocessor directives
-                ["@conditional"]           = { fg = "$md_cyan" },  -- if/else/switch (older name, keep for compat)
+                -- IntelliJ Material Darker style globally: purple italic
+                ["@keyword"]               = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.import"]        = { fg = "$md_purple", fmt = "italic" },  -- import/export/require
+                ["@keyword.return"]        = { fg = "$md_purple", fmt = "italic" },  -- return
+                ["@keyword.repeat"]        = { fg = "$md_purple", fmt = "italic" },  -- for/while/do
+                ["@keyword.operator"]      = { fg = "$md_purple", fmt = "italic" },  -- typeof/instanceof/in/of/new
+                ["@keyword.function"]      = { fg = "$md_purple", fmt = "italic" },  -- function keyword
+                ["@keyword.coroutine"]     = { fg = "$md_purple", fmt = "italic" },  -- async/await
+                ["@keyword.exception"]     = { fg = "$md_purple", fmt = "italic" },  -- try/catch/throw/finally
+                ["@keyword.modifier"]      = { fg = "$md_purple", fmt = "italic" },  -- public/private/static/final/readonly
+                ["@keyword.conditional"]   = { fg = "$md_purple", fmt = "italic" },  -- if/else/switch (newer name)
+                ["@keyword.directive"]     = { fg = "$md_purple", fmt = "italic" },  -- preprocessor directives
+                ["@conditional"]           = { fg = "$md_purple", fmt = "italic" },  -- if/else/switch (older name, keep for compat)
 
                 -- functions and calls
                 ["@function"]              = { fg = "$md_blue" },
@@ -49,13 +50,13 @@ return {
 
                 -- variables
                 ["@variable"]              = { fg = "$md_white" },
-                ["@variable.builtin"]      = { fg = "$md_cyan" },  -- this/super/self
+                ["@variable.builtin"]      = { fg = "$md_purple", fmt = "italic" },  -- this/super/self (IJ: keyword-like)
                 ["@parameter"]             = { fg = "$md_orange" },
                 ["@property"]              = { fg = "$md_grey_blue" },
 
                 -- constants
                 ["@constant"]              = { fg = "$md_white" },
-                ["@constant.builtin"]      = { fg = "$md_cyan" },  -- true/false/null/undefined/NaN
+                ["@constant.builtin"]      = { fg = "$md_purple", fmt = "italic" },  -- true/false/null/undefined/NaN (IJ: keyword-like)
 
                 -- literals
                 ["@string"]                = { fg = "$md_green" },
@@ -77,18 +78,23 @@ return {
                 ["@function.method.call"]   = { fg = "$md_blue" },
                 ["@variable.parameter"]     = { fg = "$md_orange" },
                 ["@variable.member"]        = { fg = "$md_grey_blue" },
-                ["@boolean"]                = { fg = "$md_cyan" },
+                ["@boolean"]                = { fg = "$md_purple", fmt = "italic" },
                 ["@module.builtin"]         = { fg = "$md_yellow" },
                 ["@number.float"]           = { fg = "$md_orange" },
                 ["@string.documentation"]   = { fg = "$md_green" },
                 ["@string.special.url"]     = { fg = "$md_cyan" },
                 ["@character.special"]      = { fg = "$md_cyan" },
-                ["@keyword.conditional.ternary"] = { fg = "$md_cyan" },
-                ["@keyword.type"]           = { fg = "$md_cyan" },
-                ["@attribute"]              = { fg = "$md_purple" },
-                ["@attribute.java"]         = { fg = "$md_red" },
+                ["@keyword.conditional.ternary"] = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.type"]           = { fg = "$md_purple", fmt = "italic" },
+                ["@attribute"]              = { fg = "$md_purple", fmt = "italic" },  -- annotations/decorators (IJ style)
                 ["@lsp.typemod.variable.static"]         = { fg = "$md_grey_blue", fmt = "italic" },
                 ["@lsp.typemod.variable.defaultLibrary"] = { fg = "$md_cyan" },
+
+                -- markup tags (html/css selectors; tsx/js scoped rules override)
+                ["@tag"]           = { fg = "$md_red" },
+                ["@tag.builtin"]   = { fg = "$md_red" },
+                ["@tag.attribute"] = { fg = "$md_yellow", fmt = "italic" },
+                ["@tag.delimiter"] = { fg = "$md_cyan" },
 
                 -- misc
                 ["@comment"]               = { fg = "$md_comment" },
@@ -109,7 +115,7 @@ return {
                 ["@lsp.type.enum"]             = { fg = "$md_yellow" },
                 ["@lsp.type.enumMember"]       = { fg = "$md_orange" },
                 ["@lsp.type.parameter"]        = { fg = "$md_orange" },
-                ["@lsp.type.keyword"]          = { fg = "$md_cyan" },
+                ["@lsp.type.keyword"]          = { fg = "$md_purple", fmt = "italic" },
                 ["@lsp.type.namespace"]        = { fg = "$md_yellow" },
                 ["@lsp.type.typeParameter"]    = { fg = "$md_yellow" },  -- generics <T>
                 ["@lsp.typemod.class.abstract"]   = { fg = "$md_yellow", fmt = "italic" },
@@ -118,7 +124,7 @@ return {
                 ["@lsp.typemod.function.static"]         = { fg = "$md_blue", fmt = "italic" },
 
                 -- java
-                ["@lsp.type.annotation.java"]        = { fg = "$md_red" },
+                ["@lsp.type.annotation.java"]        = { fg = "$md_purple", fmt = "italic" },
                 ["@lsp.type.typeParameter.java"]      = { fg = "$md_yellow" },
                 ["@lsp.type.function.groovy"]         = { fg = "$md_blue" },
                 ["@lsp.typemod.method.static.java"]   = { fg = "$md_blue",      fmt = "italic" },
