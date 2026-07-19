@@ -1,13 +1,16 @@
 return {
     "nvim-telescope/telescope.nvim",
-    tag = "0.1.5",
-    dependencies = { "nvim-lua/plenary.nvim" },
+    branch = "master",
+    dependencies = {
+        "nvim-lua/plenary.nvim",
+        "nvim-treesitter/nvim-treesitter",
+        { "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
+        "nvim-telescope/telescope-ui-select.nvim",
+    },
     keys = {
         { "<C-p>", function() require("telescope.builtin").git_files() end },
         { "<leader>ff", function() require("telescope.builtin").find_files() end },
-        { "<leader>fw", function()
-            require("telescope.builtin").grep_string({ search = vim.fn.input("Grep > ") })
-        end },
+        { "<leader>fw", function() require("telescope.builtin").live_grep() end },
         { "<leader>gb", "<cmd>Telescope git_branches<cr>" },
     },
     config = function()
@@ -26,5 +29,7 @@ return {
                 },
             },
         })
+        require("telescope").load_extension("fzf")
+        require("telescope").load_extension("ui-select")
     end,
 }

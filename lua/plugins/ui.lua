@@ -23,6 +23,16 @@ return {
         },
     },
     {
+        "j-hui/fidget.nvim",
+        event = "LspAttach",
+        opts = {},
+    },
+    {
+        "folke/which-key.nvim",
+        event = "VeryLazy",
+        opts = {},
+    },
+    {
         "lukas-reineke/indent-blankline.nvim",
         main = "ibl",
         event = "BufReadPre",
@@ -30,6 +40,7 @@ return {
     },
     {
         "nvim-tree/nvim-tree.lua",
+        lazy = false,
         dependencies = { "nvim-tree/nvim-web-devicons" },
         keys = {
             { "<A-1>", "<cmd>NvimTreeFindFileToggle<cr>" },
@@ -40,11 +51,18 @@ return {
 
             require("nvim-tree").setup({
                 view = {
-                    adaptive_size = true,
+                    -- grow to fit names but never past 45 columns
+                    width = { min = 25, max = 45 },
                 },
                 update_focused_file = {
                     enable = true,
                 },
+            })
+
+            vim.api.nvim_create_autocmd("VimEnter", {
+                callback = function()
+                    require("nvim-tree.api").tree.open()
+                end,
             })
         end,
     },

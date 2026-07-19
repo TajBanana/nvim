@@ -26,6 +26,16 @@ return {
         },
     },
     {
+        "folke/trouble.nvim",
+        dependencies = { "nvim-tree/nvim-web-devicons" },
+        cmd = "Trouble",
+        keys = {
+            { "<leader>xx", "<cmd>Trouble diagnostics toggle<cr>", desc = "Diagnostics (Trouble)" },
+            { "<leader>xb", "<cmd>Trouble diagnostics toggle filter.buf=0<cr>", desc = "Buffer diagnostics (Trouble)" },
+        },
+        opts = {},
+    },
+    {
         "vim-test/vim-test",
         keys = {
             { "<leader>tt", "<cmd>TestNearest -strategy=neovim<cr>", silent = true },
