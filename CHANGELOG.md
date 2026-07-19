@@ -3,6 +3,37 @@
 Notable changes to this Neovim configuration, newest first. Dates are taken
 from git history; entries before 2026 are reconstructed from commit messages.
 
+## 2026-07-20 — Color parity round 2, completion upgrades
+
+### Fixed
+- Cross-language color audit (16-language multi-agent sweep,
+  `docs/2026-07-20-color-discrepancy-audit.md`): restored 12 highlight groups
+  whose treesitter captures had been renamed upstream (`@function.method.call`,
+  `@variable.parameter`, `@boolean`, `@number.float`, …) — onedark defaults
+  had been leaking through in most languages.
+- nvim-cmp dropdown borders (newer cmp defers to the empty `winborder`
+  option; the rounded style is now explicit).
+- nvim-tree ragged-edge redraw artifacts: fixed width 40 instead of
+  adaptive resizing.
+
+### Added
+- **Kotlin** IntelliJ Material Darker parity (pixel-sampled): purple italic
+  keywords and annotations (annotation query above semantic-token priority),
+  white constructor properties and constants; functions stay blue, class
+  declarations yellow.
+- **Plain TypeScript** parity, matching the tsx scheme (purple italic
+  keywords and primitive types, green italic type aliases, yellow free
+  functions, blue methods/setters, white params/props).
+- Snippets: friendly-snippets collection wired into the existing LuaSnip
+  setup (~2k snippets across all languages), IntelliJ-style **super-Tab** —
+  Tab confirms completion, then jumps snippet placeholders (S-Tab back);
+  Enter confirms an explicitly selected item.
+- `<leader>gd` picker: kind tags shown first and palette-colored
+  ([def] yellow, [type] green, [impl] blue, [ref] purple).
+- Telescope `filename_first` path display — filenames stay visible on
+  deeply nested paths.
+- lazygit integration (`<leader>lg`, opens files in the host nvim).
+
 ## 2026-07-19 — Language tooling overhaul
 
 Fixes for four silent breakages plus a feature wave. Full report:

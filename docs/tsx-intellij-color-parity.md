@@ -1,4 +1,13 @@
-# TSX ↔ IntelliJ Material Darker color parity
+# TSX / TypeScript / Kotlin ↔ IntelliJ Material Darker color parity
+
+> 2026-07-20 update: parity now also covers **plain TypeScript** (same rules
+> as tsx, `.typescript`-scoped, including primitive types like `string` as
+> purple italic and a `useState`-setter query for custom hooks) and
+> **Kotlin** (pixel-sampled like tsx: purple italic keywords/annotations —
+> annotations via `after/queries/kotlin/highlights.scm` at priority 130 over
+> the blue semantic token — white constructor properties and constants;
+> unlike tsx, Kotlin functions stay blue and class declarations yellow, which
+> is what IntelliJ does there). JS/JSX intentionally keep the original scheme.
 
 Date: 2026-07-19 (revised same day). Matched Neovim's TSX highlighting to
 IntelliJ IDEA's Material Darker scheme via pixel-sampling side-by-side
