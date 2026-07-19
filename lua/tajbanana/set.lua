@@ -68,8 +68,8 @@ vim.api.nvim_set_hl(0, "LineNr", { fg = "#737373" })
 vim.cmd([[set guicursor+=a:blinkon500]])
 
 vim.opt.ignorecase = true
-vim.keymap.set("n", "<C-d>", "<C-d>zz", { noremap = true, silent = true })
-vim.keymap.set("n", "<C-u>", "<C-u>zz", { noremap = true, silent = true })
+vim.keymap.set("n", "<C-d>", "<C-d>zz", { noremap = true, silent = true, desc = "Half page down (centered)" })
+vim.keymap.set("n", "<C-u>", "<C-u>zz", { noremap = true, silent = true, desc = "Half page up (centered)" })
 
 local term_buf = nil
 local term_win = nil
@@ -91,8 +91,8 @@ function ToggleTerminal()
 end
 
 -- Map F2 in both Normal and Terminal modes to the same function
-vim.keymap.set('n', '<F2>', ToggleTerminal, { silent = true })
-vim.keymap.set('t', '<F2>', [[<C-\><C-n>:lua ToggleTerminal()<CR>]], { silent = true })
+vim.keymap.set('n', '<F2>', ToggleTerminal, { silent = true, desc = "Toggle terminal" })
+vim.keymap.set('t', '<F2>', [[<C-\><C-n>:lua ToggleTerminal()<CR>]], { silent = true, desc = "Toggle terminal" })
 
 -- Incremental selection using native treesitter (like IntelliJ Option+Up/Down)
 local ts_node_stack = {}

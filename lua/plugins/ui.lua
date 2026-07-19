@@ -30,7 +30,21 @@ return {
     {
         "folke/which-key.nvim",
         event = "VeryLazy",
-        opts = {},
+        opts = {
+            spec = {
+                { "<leader>f", group = "Find" },
+                { "<leader>g", group = "Git / Goto" },
+                { "<leader>h", group = "Harpoon" },
+                { "<leader>t", group = "Test / Toggle" },
+                { "<leader>v", group = "LSP view" },
+                { "<leader>x", group = "Diagnostics" },
+                { "<leader>r", group = "Refactor / Rename" },
+                { "<leader>c", group = "Code" },
+                { "<leader>d", group = "Diff" },
+                { "<leader>u", group = "Undo" },
+                { "<leader>l", group = "LazyGit" },
+            },
+        },
     },
     {
         "lukas-reineke/indent-blankline.nvim",
@@ -43,7 +57,7 @@ return {
         lazy = false,
         dependencies = { "nvim-tree/nvim-web-devicons" },
         keys = {
-            { "<A-1>", "<cmd>NvimTreeFindFileToggle<cr>" },
+            { "<A-1>", "<cmd>NvimTreeFindFileToggle<cr>", desc = "Toggle file tree" },
         },
         config = function()
             vim.g.loaded_netrw = 1

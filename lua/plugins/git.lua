@@ -3,8 +3,8 @@ return {
         "tpope/vim-fugitive",
         cmd = "Git",
         keys = {
-            { "<leader>gs", function() vim.cmd("vert Git") end },
-            { "<leader>dv", function() vim.cmd("Gvdiff") end },
+            { "<leader>gs", function() vim.cmd("vert Git") end, desc = "Git status (fugitive)" },
+            { "<leader>dv", function() vim.cmd("Gvdiff") end, desc = "Diff file vs index" },
         },
     },
     {
@@ -26,7 +26,7 @@ return {
                     else
                         gitsigns.nav_hunk("next")
                     end
-                end)
+                end, { desc = "Next git hunk" })
 
                 map("n", "<leader>oo", function()
                     if vim.wo.diff then
@@ -34,11 +34,11 @@ return {
                     else
                         gitsigns.nav_hunk("prev")
                     end
-                end)
+                end, { desc = "Previous git hunk" })
 
-                map("n", "<leader>gp", gitsigns.preview_hunk)
-                map("n", "<leader>td", gitsigns.toggle_deleted)
-                map({ "o", "x" }, "ih", ":<C-U>Gitsigns select_hunk<CR>")
+                map("n", "<leader>gp", gitsigns.preview_hunk, { desc = "Preview git hunk" })
+                map("n", "<leader>td", gitsigns.toggle_deleted, { desc = "Toggle deleted lines" })
+                map({ "o", "x" }, "ih", ":<C-U>Gitsigns select_hunk<CR>", { desc = "Select git hunk" })
             end,
         },
     },

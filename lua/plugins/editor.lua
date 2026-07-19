@@ -22,7 +22,7 @@ return {
     {
         "mbbill/undotree",
         keys = {
-            { "<leader>ut", vim.cmd.UndotreeToggle },
+            { "<leader>ut", vim.cmd.UndotreeToggle, desc = "Toggle undotree" },
         },
     },
     {
@@ -38,9 +38,9 @@ return {
     {
         "vim-test/vim-test",
         keys = {
-            { "<leader>tt", "<cmd>TestNearest -strategy=neovim<cr>", silent = true },
-            { "<leader>tf", "<cmd>TestFile -strategy=neovim<cr>", silent = true },
-            { "<leader>ta", "<cmd>TestSuite<cr>", silent = true },
+            { "<leader>tt", "<cmd>TestNearest -strategy=neovim<cr>", silent = true, desc = "Test nearest" },
+            { "<leader>tf", "<cmd>TestFile -strategy=neovim<cr>", silent = true, desc = "Test file" },
+            { "<leader>ta", "<cmd>TestSuite<cr>", silent = true, desc = "Test suite" },
         },
     },
 }

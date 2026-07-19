@@ -8,10 +8,10 @@ return {
         "nvim-telescope/telescope-ui-select.nvim",
     },
     keys = {
-        { "<C-p>", function() require("telescope.builtin").git_files() end },
-        { "<leader>ff", function() require("telescope.builtin").find_files() end },
-        { "<leader>fw", function() require("telescope.builtin").live_grep() end },
-        { "<leader>gb", "<cmd>Telescope git_branches<cr>" },
+        { "<C-p>", function() require("telescope.builtin").git_files() end, desc = "Find git files" },
+        { "<leader>ff", function() require("telescope.builtin").find_files() end, desc = "Find files" },
+        { "<leader>fw", function() require("telescope.builtin").live_grep() end, desc = "Live grep" },
+        { "<leader>gb", "<cmd>Telescope git_branches<cr>", desc = "Git branches" },
     },
     config = function()
         require("telescope").setup({

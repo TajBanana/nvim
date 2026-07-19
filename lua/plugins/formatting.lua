@@ -3,7 +3,7 @@ return {
     keys = {
         { "<leader>gf", function()
             require("conform").format({ async = true, lsp_format = "fallback" })
-        end },
+        end, desc = "Format buffer" },
     },
     opts = {
         formatters_by_ft = {
