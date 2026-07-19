@@ -51,8 +51,9 @@ return {
 
             require("nvim-tree").setup({
                 view = {
-                    -- grow to fit names but never past 45 columns
-                    width = { min = 25, max = 45 },
+                    -- fixed width: dynamic resizing leaves stale-cell redraw
+                    -- artifacts at the tree's right edge
+                    width = 40,
                 },
                 update_focused_file = {
                     enable = true,
