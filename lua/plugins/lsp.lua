@@ -199,6 +199,7 @@ return {
             "hrsh7th/cmp-nvim-lsp",
             "L3MON4D3/LuaSnip",
             "saadparwaiz1/cmp_luasnip",
+            "rafamadriz/friendly-snippets",
         },
         config = function()
             local cmp = require("cmp")
@@ -211,13 +212,35 @@ return {
                     end,
                 },
                 window = {
-                    completion = cmp.config.window.bordered(),
-                    documentation = cmp.config.window.bordered(),
+                    -- newer cmp defers to vim.o.winborder (empty by default),
+                    -- so the style must be explicit
+                    completion = cmp.config.window.bordered({ border = "rounded" }),
+                    documentation = cmp.config.window.bordered({ border = "rounded" }),
                 },
                 mapping = cmp.mapping.preset.insert({
                     ["<C-p>"] = cmp.mapping.select_prev_item(cmp_select),
                     ["<C-n>"] = cmp.mapping.select_next_item(cmp_select),
-                    ["<Tab>"] = cmp.mapping.confirm({ select = true }),
+                    -- Tab: confirm completion, else jump to next snippet
+                    -- placeholder, else literal tab
+                    ["<Tab>"] = cmp.mapping(function(fallback)
+                        local luasnip = require("luasnip")
+                        if cmp.visible() then
+                            cmp.confirm({ select = true })
+                        elseif luasnip.locally_jumpable(1) then
+                            luasnip.jump(1)
+                        else
+                            fallback()
+                        end
+                    end, { "i", "s" }),
+                    ["<S-Tab>"] = cmp.mapping(function(fallback)
+                        local luasnip = require("luasnip")
+                        if luasnip.locally_jumpable(-1) then
+                            luasnip.jump(-1)
+                        else
+                            fallback()
+                        end
+                    end, { "i", "s" }),
+                    ["<CR>"] = cmp.mapping.confirm({ select = false }),
                     ["<C-Space>"] = cmp.mapping.complete(),
                 }),
                 sources = cmp.config.sources({
