@@ -61,7 +61,19 @@ return {
             -- Keymaps on LspAttach
             vim.api.nvim_create_autocmd("LspAttach", {
                 callback = function(ev)
-                    local opts = { buffer = ev.buf, remap = false }
+                    -- kotlin-lsp only declares "." as a completion trigger, so
+                    -- typing "@" never opens annotation completion; add it
+                    local client = vim.lsp.get_client_by_id(ev.data.client_id)
+                    if client and client.name == "kotlin_lsp" then
+                        local cp = client.server_capabilities.completionProvider
+                        if cp and cp.triggerCharacters and not vim.tbl_contains(cp.triggerCharacters, "@") then
+                            table.insert(cp.triggerCharacters, "@")
+                        end
+                    end
+
+                    local function opts(desc)
+                        return { buffer = ev.buf, remap = false, desc = desc }
+                    end
 
                     -- One flat picker with every LSP location for the symbol,
                     -- tagged by kind; type "def"/"impl"/"ref" to filter
@@ -164,17 +176,18 @@ return {
                                 if remaining == 0 then open_picker() end
                             end
                         end
-                    end, opts)
-                    vim.keymap.set("n", "<leader>gi", vim.lsp.buf.implementation, opts)
-                    vim.keymap.set("n", "<leader>gr", function() require("telescope.builtin").lsp_references() end, opts)
-                    vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
-                    vim.keymap.set("n", "<leader>vws", vim.lsp.buf.workspace_symbol, opts)
-                    vim.keymap.set("n", "<leader>vd", vim.diagnostic.open_float, opts)
-                    vim.keymap.set("n", "]e", function() vim.diagnostic.jump({ count = 1 }) end, opts)
-                    vim.keymap.set("n", "[e", function() vim.diagnostic.jump({ count = -1 }) end, opts)
-                    vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts)
-                    vim.keymap.set("n", "<leader>rf", vim.lsp.buf.rename, opts)
-                    vim.keymap.set("i", "<C-h>", vim.lsp.buf.signature_help, opts)
+                    end, opts("Go to def/type/impl/ref"))
+                    vim.keymap.set("n", "<leader>gi", vim.lsp.buf.implementation, opts("Go to implementation"))
+                    vim.keymap.set("n", "<leader>gr", function() require("telescope.builtin").lsp_references() end, opts("Go to references"))
+                    vim.keymap.set("n", "K", vim.lsp.buf.hover, opts("Hover docs"))
+                    vim.keymap.set("n", "<leader>vws", vim.lsp.buf.workspace_symbol, opts("Workspace symbols"))
+                    vim.keymap.set("n", "<leader>vd", vim.diagnostic.open_float, opts("Show diagnostic"))
+                    vim.keymap.set("n", "]e", function() vim.diagnostic.jump({ count = 1 }) end, opts("Next diagnostic"))
+                    vim.keymap.set("n", "[e", function() vim.diagnostic.jump({ count = -1 }) end, opts("Previous diagnostic"))
+                    vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts("Code action"))
+                    vim.keymap.set({ "n", "v" }, "<M-CR>", vim.lsp.buf.code_action, opts("Code action"))
+                    vim.keymap.set("n", "<leader>rf", vim.lsp.buf.rename, opts("Rename symbol"))
+                    vim.keymap.set("i", "<C-h>", vim.lsp.buf.signature_help, opts("Signature help"))
                 end,
             })
 

@@ -28,6 +28,8 @@ config.colors = {
 }
 
 config.keys = {
+    -- let Opt+Enter reach nvim (code actions) instead of toggling fullscreen
+    { mods = "OPT", key = "Enter", action = action.DisableDefaultAssignment },
     { mods = "OPT", key = "LeftArrow",  action = action.SendKey({ mods = "ALT", key = "b" }) },
     { mods = "OPT", key = "RightArrow", action = action.SendKey({ mods = "ALT", key = "f" }) },
     { mods = "CMD", key = "LeftArrow",  action = action.SendKey({ mods = "CTRL", key = "a" }) },
