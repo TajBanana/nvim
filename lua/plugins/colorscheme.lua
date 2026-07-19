@@ -70,6 +70,26 @@ return {
                 ["@punctuation.delimiter"] = { fg = "$md_cyan" },
                 ["@punctuation.special"]   = { fg = "$md_cyan" },  -- ${} in template literals
 
+                -- renamed captures (treesitter main branch): the old names
+                -- above are kept for compat, these are the current ones —
+                -- without them onedark defaults leak through
+                ["@function.method"]        = { fg = "$md_blue" },
+                ["@function.method.call"]   = { fg = "$md_blue" },
+                ["@variable.parameter"]     = { fg = "$md_orange" },
+                ["@variable.member"]        = { fg = "$md_grey_blue" },
+                ["@boolean"]                = { fg = "$md_cyan" },
+                ["@module.builtin"]         = { fg = "$md_yellow" },
+                ["@number.float"]           = { fg = "$md_orange" },
+                ["@string.documentation"]   = { fg = "$md_green" },
+                ["@string.special.url"]     = { fg = "$md_cyan" },
+                ["@character.special"]      = { fg = "$md_cyan" },
+                ["@keyword.conditional.ternary"] = { fg = "$md_cyan" },
+                ["@keyword.type"]           = { fg = "$md_cyan" },
+                ["@attribute"]              = { fg = "$md_purple" },
+                ["@attribute.java"]         = { fg = "$md_red" },
+                ["@lsp.typemod.variable.static"]         = { fg = "$md_grey_blue", fmt = "italic" },
+                ["@lsp.typemod.variable.defaultLibrary"] = { fg = "$md_cyan" },
+
                 -- misc
                 ["@comment"]               = { fg = "$md_comment" },
 
@@ -104,17 +124,36 @@ return {
                 ["@lsp.typemod.method.static.java"]   = { fg = "$md_blue",      fmt = "italic" },
                 ["@lsp.typemod.variable.static.java"] = { fg = "$md_grey_blue", fmt = "italic" },
 
-                -- kotlin
+                -- kotlin: IntelliJ Material Darker parity (pixel-sampled from
+                -- the IDE; functions stay blue and class declarations yellow,
+                -- unlike the tsx scheme)
                 ["@lsp.type.type.kotlin"]             = { fg = "$md_yellow" },
-                ["@lsp.type.annotation.kotlin"]       = { fg = "$md_red" },
+                ["@lsp.type.annotation.kotlin"]       = { fg = "$md_purple", fmt = "italic" },
                 ["@lsp.type.typeParameter.kotlin"]    = { fg = "$md_yellow" },
-                ["@variable.member.kotlin"]           = { fg = "$md_grey_blue" },
+                ["@variable.member.kotlin"]           = { fg = "$md_white" },
                 ["@function.builtin.kotlin"]          = { fg = "$md_blue", fmt = "italic" },
+                ["@keyword.kotlin"]             = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.conditional.kotlin"] = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.coroutine.kotlin"]   = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.directive.kotlin"]   = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.exception.kotlin"]   = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.function.kotlin"]    = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.import.kotlin"]      = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.modifier.kotlin"]    = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.repeat.kotlin"]      = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.return.kotlin"]      = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.type.kotlin"]        = { fg = "$md_purple", fmt = "italic" },
+                ["@lsp.type.keyword.kotlin"]    = { fg = "$md_purple", fmt = "italic" },
+                ["@attribute.kotlin"]           = { fg = "$md_purple", fmt = "italic" },
+                -- constructor props / param declarations white; named-argument
+                -- usages keep the base parameter orange
+                ["@lsp.typemod.parameter.declaration.kotlin"] = { fg = "$md_white" },
+                ["@lsp.type.property.kotlin"]   = { fg = "$md_white" },
 
                 -- typescript / javascript (tsx + ts + js + jsx)
                 ["@constructor.tsx"]                         = { fg = "$md_yellow", fmt = "bold" },
                 ["@constructor.javascript"]                  = { fg = "$md_yellow", fmt = "bold" },
-                ["@lsp.type.function.typescript"]            = { fg = "$md_blue" },
+                ["@lsp.type.function.typescript"]            = { fg = "$md_yellow" },
                 ["@lsp.type.function.typescriptreact"]       = { fg = "$md_yellow" },
                 ["@lsp.type.function.javascript"]            = { fg = "$md_blue" },
                 ["@lsp.type.class.typescriptreact"]          = { fg = "$md_yellow" },
@@ -139,6 +178,7 @@ return {
                 ["@keyword.exception.tsx"]   = { fg = "$md_purple", fmt = "italic" },
                 ["@keyword.modifier.tsx"]    = { fg = "$md_purple", fmt = "italic" },
                 ["@conditional.tsx"]         = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.conditional.ternary.tsx"] = { fg = "$md_purple", fmt = "italic" },
                 ["@type.tsx"]                = { fg = "$md_green", fmt = "italic" },
                 ["@function.tsx"]            = { fg = "$md_yellow" },
                 ["@function.call.tsx"]       = { fg = "$md_yellow" },
@@ -154,6 +194,42 @@ return {
                 ["@variable.member.tsx"]     = { fg = "$md_white" },
                 ["@tag.attribute.tsx"]       = { fg = "$md_yellow", fmt = "italic" },
                 ["@none.tsx"]                = { fg = "$md_white" },  -- JSX text content
+
+                -- plain typescript: same IntelliJ parity as tsx (keywords and
+                -- primitive types purple italic, types green italic, free
+                -- functions yellow, locals/methods blue, params/props white)
+                ["@keyword.typescript"]             = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.import.typescript"]      = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.return.typescript"]      = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.conditional.typescript"] = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.conditional.ternary.typescript"] = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.repeat.typescript"]      = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.operator.typescript"]    = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.function.typescript"]    = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.coroutine.typescript"]   = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.exception.typescript"]   = { fg = "$md_purple", fmt = "italic" },
+                ["@keyword.modifier.typescript"]    = { fg = "$md_purple", fmt = "italic" },
+                ["@conditional.typescript"]         = { fg = "$md_purple", fmt = "italic" },
+                ["@boolean.typescript"]             = { fg = "$md_purple", fmt = "italic" },
+                ["@constant.builtin.typescript"]    = { fg = "$md_purple", fmt = "italic" },
+                ["@type.builtin.typescript"]        = { fg = "$md_purple", fmt = "italic" },
+                ["@type.typescript"]                = { fg = "$md_green", fmt = "italic" },
+                ["@function.typescript"]            = { fg = "$md_yellow" },
+                ["@function.call.typescript"]       = { fg = "$md_yellow" },
+                ["@function.builtin.typescript"]    = { fg = "$md_yellow" },
+                ["@function.method.typescript"]     = { fg = "$md_blue" },
+                ["@function.method.call.typescript"] = { fg = "$md_blue" },
+                ["@function.setter.typescript"]     = { fg = "$md_blue" },
+                ["@parameter.typescript"]           = { fg = "$md_white" },
+                ["@variable.parameter.typescript"]  = { fg = "$md_white" },
+                ["@property.typescript"]            = { fg = "$md_white" },
+                ["@variable.member.typescript"]     = { fg = "$md_white" },
+                ["@lsp.type.parameter.typescript"]  = { fg = "$md_white" },
+                ["@lsp.type.property.typescript"]   = { fg = "$md_white" },
+                ["@lsp.type.interface.typescript"]  = { fg = "$md_green", fmt = "italic" },
+                ["@lsp.type.type.typescript"]       = { fg = "$md_green", fmt = "italic" },
+                ["@lsp.typemod.function.local.typescript"] = { fg = "$md_blue" },
+                ["@lsp.type.method.typescript"]     = { fg = "$md_blue" },
                 ["@lsp.type.parameter.typescriptreact"]            = { fg = "$md_white" },
                 ["@lsp.type.property.typescriptreact"]             = { fg = "$md_white" },
                 ["@lsp.type.interface.typescriptreact"]            = { fg = "$md_green", fmt = "italic" },
