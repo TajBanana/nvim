@@ -105,6 +105,12 @@ return {
                 ["GdTagImpl"] = { fg = "$md_blue" },
                 ["GdTagRef"]  = { fg = "$md_purple" },
 
+                -- Telescope: mark the previewed line (the diagnostic / grep match
+                -- / definition the picker jumped to) so the issue stands out in
+                -- the preview pane; and colour the matched query text in results
+                ["TelescopePreviewLine"] = { bg = "#33415e", fmt = "bold" },
+                ["TelescopeMatching"]    = { fg = "$md_orange", fmt = "bold" },
+
                 -- lsp (language-agnostic)
                 ["@lsp.type.variable"]         = { fg = "$md_white" },
                 ["@lsp.type.interface"]        = { fg = "$md_green", fmt = "italic" },  -- interfaces green italic everywhere

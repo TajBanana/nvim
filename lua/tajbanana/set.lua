@@ -41,6 +41,11 @@ vim.opt.cmdheight = 0
 vim.opt.showcmd = true
 vim.opt.showcmdloc = "statusline"
 
+-- Rounded border on floating windows so LSP hover (K), signature help, and
+-- diagnostic floats stand out from the buffer. nvim-cmp sets its own border
+-- explicitly, so this does not double up there.
+vim.opt.winborder = "rounded"
+
 -- nvm is lazy-loaded in .zshrc, so node is usually missing from PATH when
 -- nvim starts and Mason's node-based LSP servers (ts_ls, yamlls, ...) die
 -- with exit 127. Prepend the newest nvm node unless node is already found.
