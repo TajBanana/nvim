@@ -35,6 +35,12 @@ vim.opt.colorcolumn = "100"
 vim.opt.splitright = true
 vim.opt.clipboard:append("unnamedplus")
 
+-- Reclaim the empty command-line row: hide it when idle (cmdheight=0) and render
+-- the pending-keystroke display (showcmd) inside the statusline via lualine's %S item.
+vim.opt.cmdheight = 0
+vim.opt.showcmd = true
+vim.opt.showcmdloc = "statusline"
+
 -- nvm is lazy-loaded in .zshrc, so node is usually missing from PATH when
 -- nvim starts and Mason's node-based LSP servers (ts_ls, yamlls, ...) die
 -- with exit 127. Prepend the newest nvm node unless node is already found.

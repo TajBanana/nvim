@@ -16,9 +16,32 @@ return {
                 lualine_a = {
                     {
                         "filename",
-                        path = 1,
+                        path = 1, -- relative path
+                        shorting_target = 0, -- disable width-relative shortening; use fmt below
+                        -- Keep the last 2 segments (parent dir + filename) fully
+                        -- readable and mark deeper truncation with "…/". Deep
+                        -- package paths become meaningful instead of initials:
+                        --   server/src/main/kotlin/.../controller/ExerciseController.kt
+                        --     -> …/controller/ExerciseController.kt
+                        -- Short paths pass through untouched:
+                        --   lib/components/Card.tsx -> lib/components/Card.tsx
+                        fmt = function(name)
+                            if not name or name == "" then
+                                return name
+                            end
+                            local keep = 2 -- trailing segments to keep in full
+                            local parts = vim.split(name, "/", { plain = true })
+                            if #parts <= keep then
+                                return name
+                            end
+                            local tail = vim.list_slice(parts, #parts - keep + 1, #parts)
+                            return "…/" .. table.concat(tail, "/")
+                        end,
                     },
                 },
+                -- %S renders the pending-keystroke display here (cmdheight=0 +
+                -- showcmdloc="statusline"), so the keys you press show in this row
+                lualine_x = { "%S", "encoding", "fileformat", "filetype" },
             },
         },
     },
