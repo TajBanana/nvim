@@ -2,7 +2,7 @@
 
 Personal Neovim configuration using [lazy.nvim](https://github.com/folke/lazy.nvim) as the plugin manager, with native LSP (Mason + nvim-lspconfig) and nvim-cmp for completion.
 
-Requires **Neovim v0.9+**.
+Requires **Neovim v0.11+** (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP API).
 
 ## Setup
 

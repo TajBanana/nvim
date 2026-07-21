@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A personal Neovim configuration (~/.config/nvim) using **lazy.nvim** as the plugin manager. Also includes a `.wezterm.lua` (WezTerm terminal config) and `.ideavimrc` (IntelliJ IdeaVim config) in the same repo.
 
-Requires Neovim v0.9+. Uses native LSP (not null-ls).
+Requires Neovim v0.11+ (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP API). Uses native LSP (not null-ls).
 
 ## Architecture
 
