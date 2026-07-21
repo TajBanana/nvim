@@ -69,6 +69,28 @@ return {
                         if cp and cp.triggerCharacters and not vim.tbl_contains(cp.triggerCharacters, "@") then
                             table.insert(cp.triggerCharacters, "@")
                         end
+
+                        -- kotlin-lsp stamps stale document versions on rename
+                        -- edits (e.g. v27 while the buffer is at v35), so nvim
+                        -- rejects them with "Buffer newer than edits"; strip
+                        -- the version before applying
+                        client.handlers["textDocument/rename"] = function(err, result)
+                            if err then
+                                vim.notify("Rename failed: " .. (err.message or ""), vim.log.levels.ERROR)
+                                return
+                            end
+                            if not result then return end
+                            for _, dc in ipairs(result.documentChanges or {}) do
+                                local td = dc.textDocument
+                                if td and td.version then
+                                    -- nvim 0.12 requires a number here, so
+                                    -- overwrite with the real buffer version
+                                    local buf = vim.uri_to_bufnr(td.uri)
+                                    td.version = vim.lsp.util.buf_versions[buf] or td.version
+                                end
+                            end
+                            vim.lsp.util.apply_workspace_edit(result, client.offset_encoding)
+                        end
                     end
 
                     local function opts(desc)
