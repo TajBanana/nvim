@@ -48,6 +48,57 @@ return {
                             checkThirdParty = false,
                             library = { vim.env.VIMRUNTIME },
                         },
+                        hint = { enable = true }, -- inlay hints
+                    },
+                },
+            })
+
+            -- Inlay hints are OFF by default in most servers and must be opted
+            -- into per-server (the LspAttach handler then turns them on for the
+            -- buffer). rust_analyzer emits them without extra settings.
+            local ts_inlay = {
+                includeInlayParameterNameHints = "all",
+                includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+                includeInlayFunctionParameterTypeHints = true,
+                includeInlayVariableTypeHints = true,
+                includeInlayVariableTypeHintsWhenTypeMatchesName = false,
+                includeInlayPropertyDeclarationTypeHints = true,
+                includeInlayFunctionLikeReturnTypeHints = true,
+                includeInlayEnumMemberValueHints = true,
+            }
+            vim.lsp.config("ts_ls", {
+                settings = {
+                    typescript = { inlayHints = ts_inlay },
+                    javascript = { inlayHints = ts_inlay },
+                },
+            })
+
+            vim.lsp.config("gopls", {
+                settings = {
+                    gopls = {
+                        hints = {
+                            assignVariableTypes = true,
+                            compositeLiteralFields = true,
+                            compositeLiteralTypes = true,
+                            constantValues = true,
+                            functionTypeParameters = true,
+                            parameterNames = true,
+                            rangeVariableTypes = true,
+                        },
+                    },
+                },
+            })
+
+            vim.lsp.config("pyright", {
+                settings = {
+                    python = {
+                        analysis = {
+                            inlayHints = {
+                                variableTypes = true,
+                                functionReturnTypes = true,
+                                callArgumentNames = true,
+                            },
+                        },
                     },
                 },
             })
@@ -56,6 +107,34 @@ return {
             -- bundled lspconfig default still uses the old kotlin-lsp name
             vim.lsp.config("kotlin_lsp", {
                 cmd = { "intellij-server", "--stdio" },
+            })
+
+            -- Enable inlay hints once per buffer when a client supports them.
+            -- The guard makes it idempotent so a later re-trigger never fights a
+            -- manual <leader>ti toggle-off.
+            local inlay_hinted = {}
+            local function enable_inlay(client, buf)
+                if not inlay_hinted[buf]
+                    and vim.api.nvim_buf_is_valid(buf)
+                    and client:supports_method("textDocument/inlayHint", buf)
+                then
+                    inlay_hinted[buf] = true
+                    vim.lsp.inlay_hint.enable(true, { bufnr = buf })
+                end
+            end
+
+            -- jdtls registers the inlayHint capability dynamically and LATE
+            -- (after its slow workspace init), so the LspAttach check below runs
+            -- too early and misses it. Re-check on LspProgress (jdtls emits
+            -- progress while indexing) and enable as soon as the capability lands.
+            vim.api.nvim_create_autocmd("LspProgress", {
+                callback = function(ev)
+                    local client = vim.lsp.get_client_by_id(ev.data.client_id)
+                    if not client then return end
+                    for buf in pairs(client.attached_buffers or {}) do
+                        enable_inlay(client, buf)
+                    end
+                end,
             })
 
             -- Keymaps on LspAttach
@@ -93,9 +172,24 @@ return {
                         end
                     end
 
+                    -- Inlay hints (IntelliJ-style inline types/params). Enable
+                    -- via the shared helper, which is idempotent and also covers
+                    -- servers that register the capability late (jdtls, via the
+                    -- LspProgress autocmd above). Toggle with <leader>ti.
+                    if client then
+                        enable_inlay(client, ev.buf)
+                    end
+                    local function toggle_inlay()
+                        vim.lsp.inlay_hint.enable(
+                            not vim.lsp.inlay_hint.is_enabled({ bufnr = ev.buf }),
+                            { bufnr = ev.buf }
+                        )
+                    end
+
                     local function opts(desc)
                         return { buffer = ev.buf, remap = false, desc = desc }
                     end
+                    vim.keymap.set("n", "<leader>ti", toggle_inlay, opts("Toggle inlay hints"))
 
                     -- One flat picker with every LSP location for the symbol,
                     -- tagged by kind; type "def"/"impl"/"ref" to filter
