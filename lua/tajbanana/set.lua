@@ -96,6 +96,50 @@ function ToggleTerminal()
   end
 end
 
+-- Open the current branch's GitLab MR (existing via glab, else the create page)
+local function open_gitlab_mr()
+    local dir = vim.fn.expand("%:p:h")
+    local function git(args)
+        return vim.trim(vim.fn.system("git -C " .. vim.fn.shellescape(dir) .. " " .. args))
+    end
+    local branch = git("branch --show-current")
+    if vim.v.shell_error ~= 0 or branch == "" then
+        vim.notify("Not on a git branch", vim.log.levels.WARN)
+        return
+    end
+    local remote = git("remote get-url origin")
+    if vim.v.shell_error ~= 0 or remote == "" then
+        vim.notify("No git remote", vim.log.levels.WARN)
+        return
+    end
+    local base = remote:gsub("%.git$", ""):gsub("^ssh://git@", "https://"):gsub("^git@([^:]+):", "https://%1/")
+    local create_url = base .. "/-/merge_requests/new?merge_request%5Bsource_branch%5D=" .. branch
+    -- GitLab publishes MR heads as refs; match the remote branch SHA to find
+    -- an existing MR without needing glab or an API token
+    vim.system(
+        { "git", "ls-remote", "origin", "refs/heads/" .. branch, "refs/merge-requests/*/head" },
+        { cwd = dir, text = true },
+        vim.schedule_wrap(function(out)
+            local branch_sha, best
+            local mrs = {}
+            for line in (out.stdout or ""):gmatch("[^\n]+") do
+                local sha, ref = line:match("^(%x+)%s+(%S+)$")
+                if ref == "refs/heads/" .. branch then
+                    branch_sha = sha
+                elseif ref then
+                    local iid = ref:match("^refs/merge%-requests/(%d+)/head$")
+                    if iid then mrs[#mrs + 1] = { iid = tonumber(iid), sha = sha } end
+                end
+            end
+            for _, m in ipairs(mrs) do
+                if m.sha == branch_sha and (not best or m.iid > best) then best = m.iid end
+            end
+            vim.ui.open(best and (base .. "/-/merge_requests/" .. best) or create_url)
+        end)
+    )
+end
+vim.keymap.set("n", "<leader>gm", open_gitlab_mr, { desc = "Open/create GitLab MR" })
+
 -- Map F2 in both Normal and Terminal modes to the same function
 vim.keymap.set('n', '<F2>', ToggleTerminal, { silent = true, desc = "Toggle terminal" })
 vim.keymap.set('t', '<F2>', [[<C-\><C-n>:lua ToggleTerminal()<CR>]], { silent = true, desc = "Toggle terminal" })
