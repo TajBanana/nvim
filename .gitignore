@@ -10,3 +10,6 @@
 
 packer_compiled.lua
 .DS_store
+
+# Generated skillforge scaffolding (Copilot-convention symlinks mirroring .skillforge/)
+/.github/
