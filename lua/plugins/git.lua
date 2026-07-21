@@ -50,6 +50,12 @@ return {
         "kdheepak/lazygit.nvim",
         cmd = "LazyGit",
         dependencies = { "nvim-lua/plenary.nvim" },
+        init = function()
+            -- Bigger floating window: fraction of the editor each dimension fills (default 0.9)
+            vim.g.lazygit_floating_window_scaling_factor = 0.95
+            vim.g.lazygit_floating_window_winblend = 0 -- no transparency, keeps colors true
+            vim.g.lazygit_floating_window_border_chars = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" }
+        end,
         keys = {
             { "<leader>lg", "<cmd>LazyGit<cr>", desc = "LazyGit" },
         },
