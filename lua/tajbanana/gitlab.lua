@@ -53,6 +53,15 @@ local function to_web_url(url)
     return url
 end
 
+-- Percent-encode the URL-significant characters a branch name or file path may
+-- carry (#, ?, %, &, =, +, whitespace) while keeping "/" raw — GitLab accepts
+-- slashed branch names and paths verbatim in blob and MR URLs.
+local function encode_component(s)
+    return (s:gsub("[%%#?&=+%s]", function(c)
+        return string.format("%%%02X", c:byte())
+    end))
+end
+
 -- Resolve { dir, branch, remote_name, base } for the current buffer, or return
 -- nil after notifying why (not a branch / no remote).
 local function repo_context()
@@ -93,7 +102,7 @@ function M.open_mr()
         vim.ui.open(mr_url_cache[key])
         return
     end
-    local create_url = ctx.base .. "/-/merge_requests/new?merge_request%5Bsource_branch%5D=" .. ctx.branch
+    local create_url = ctx.base .. "/-/merge_requests/new?merge_request%5Bsource_branch%5D=" .. encode_component(ctx.branch)
 
     if vim.fn.executable("glab") == 1 then
         vim.notify("Looking up merge request…", vim.log.levels.INFO)
@@ -182,7 +191,7 @@ function M.open_line(range)
     else
         frag = string.format("#L%d", (range and range[1]) or vim.fn.line("."))
     end
-    vim.ui.open(ctx.base .. "/-/blob/" .. ctx.branch .. "/" .. relpath .. frag)
+    vim.ui.open(ctx.base .. "/-/blob/" .. encode_component(ctx.branch) .. "/" .. encode_component(relpath) .. frag)
 end
 
 function M.setup()

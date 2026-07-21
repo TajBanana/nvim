@@ -122,6 +122,13 @@ return {
                     vim.lsp.inlay_hint.enable(true, { bufnr = buf })
                 end
             end
+            -- Buffer numbers are reused after a wipeout; clear the guard so a
+            -- new file that lands on a recycled number still gets hints enabled.
+            vim.api.nvim_create_autocmd("BufWipeout", {
+                callback = function(ev)
+                    inlay_hinted[ev.buf] = nil
+                end,
+            })
 
             -- jdtls registers the inlayHint capability dynamically and LATE
             -- (after its slow workspace init), so the LspAttach check below runs

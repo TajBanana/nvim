@@ -24,7 +24,7 @@ Requires Neovim v0.11+ (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP AP
 - `telescope.lua` — Fuzzy finder (file search, grep, git branches)
 - `treesitter.lua` — Syntax highlighting with auto-install for parsers
 - `formatting.lua` — conform.nvim (format-on-demand, not auto-format)
-- `editor.lua` — Editing utilities (surround, comments, autoclose, undotree, vim-test)
+- `editor.lua` — Editing utilities (surround, comments, autoclose, trouble, vim-test)
 - `git.lua` — vim-fugitive, gitsigns, git-blame
 - `harpoon.lua` — Quick file navigation (harpoon2 branch) with Telescope integration
 - `ui.lua` — lualine, indent-blankline, nvim-tree (file explorer)
