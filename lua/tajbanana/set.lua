@@ -178,7 +178,7 @@ local ts_node_stack = {}
 local function select_node(node)
     local sr, sc, er, ec = node:range()
     vim.api.nvim_buf_set_mark(0, "<", sr + 1, sc, {})
-    vim.api.nvim_buf_set_mark(0, ">", er + 1, ec - 1, {})
+    vim.api.nvim_buf_set_mark(0, ">", er + 1, math.max(0, ec - 1), {})
     vim.cmd("normal! gv")
 end
 
@@ -190,13 +190,8 @@ vim.keymap.set("n", "<M-Up>", function()
     end
 end, { desc = "Start incremental selection" })
 
-vim.keymap.set("n", "<M-Down>", function()
-    local node = vim.treesitter.get_node()
-    if node then
-        ts_node_stack = { node }
-        select_node(node)
-    end
-end, { desc = "Start incremental selection" })
+-- Normal mode has nothing to shrink yet, so <M-Up> is the sole entry point;
+-- <M-Down> shrinks only once a selection exists (visual-mode map below).
 
 vim.keymap.set("x", "<M-Up>", function()
     local current = ts_node_stack[#ts_node_stack]
