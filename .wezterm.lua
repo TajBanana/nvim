@@ -68,5 +68,37 @@ config.window_padding = {
     bottom = 0,
 }
 
+-- Title each tab by its working-directory basename (the project/repo folder)
+-- instead of the generic foreground-process name ("nvim"). Works for shell and
+-- nvim tabs alike, since it reads the pane's cwd rather than the running program.
+local function pane_dir_basename(pane)
+    local uri = pane.current_working_dir
+    if not uri then
+        return nil
+    end
+    -- newer wezterm exposes a Url object with .file_path; older gives a string
+    local path = type(uri) == "userdata" and uri.file_path
+        or tostring(uri):gsub("^file://[^/]*", "")
+    if not path or path == "" then
+        return nil
+    end
+    path = path:gsub("/+$", "") -- drop trailing slash
+    if path == "" or path == os.getenv("HOME") then
+        return "~"
+    end
+    return path:match("([^/]+)$") -- basename
+end
+
+wezterm.on("format-tab-title", function(tab)
+    local pane = tab.active_pane
+    local title = pane_dir_basename(pane)
+    if not title then
+        -- fall back to the process name if cwd is unknown (e.g. remote pane)
+        local proc = pane.foreground_process_name or ""
+        title = proc:match("([^/]+)$") or "shell"
+    end
+    return string.format(" %d: %s ", tab.tab_index + 1, title)
+end)
+
 -- and finally, return the configuration to wezterm
 return config
