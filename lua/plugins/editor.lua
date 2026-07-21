@@ -20,19 +20,11 @@ return {
         },
     },
     {
-        "mbbill/undotree",
-        keys = {
-            { "<leader>ut", vim.cmd.UndotreeToggle, desc = "Toggle undotree" },
-        },
-    },
-    {
+        -- Diagnostics are shown via Telescope (<leader>xx / <leader>xb); Trouble
+        -- stays available as the :Trouble command (and as a kotlin.nvim dep).
         "folke/trouble.nvim",
         dependencies = { "nvim-tree/nvim-web-devicons" },
         cmd = "Trouble",
-        keys = {
-            { "<leader>xx", "<cmd>Trouble diagnostics toggle<cr>", desc = "Diagnostics (Trouble)" },
-            { "<leader>xb", "<cmd>Trouble diagnostics toggle filter.buf=0<cr>", desc = "Buffer diagnostics (Trouble)" },
-        },
         opts = {},
     },
     {
