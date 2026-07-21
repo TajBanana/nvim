@@ -107,7 +107,7 @@ return {
 
                 -- lsp (language-agnostic)
                 ["@lsp.type.variable"]         = { fg = "$md_white" },
-                ["@lsp.type.interface"]        = { fg = "$md_purple", fmt = "italic" },
+                ["@lsp.type.interface"]        = { fg = "$md_green", fmt = "italic" },  -- interfaces green italic everywhere
                 ["@lsp.type.property"]         = { fg = "$md_grey_blue" },
                 ["@lsp.type.method"]           = { fg = "$md_blue" },
                 ["@lsp.type.function"]         = { fg = "$md_blue" },
@@ -186,6 +186,7 @@ return {
                 ["@conditional.tsx"]         = { fg = "$md_purple", fmt = "italic" },
                 ["@keyword.conditional.ternary.tsx"] = { fg = "$md_purple", fmt = "italic" },
                 ["@type.tsx"]                = { fg = "$md_green", fmt = "italic" },
+                ["@type.builtin.tsx"]        = { fg = "$md_purple", fmt = "italic" },  -- string/number/boolean
                 ["@function.tsx"]            = { fg = "$md_yellow" },
                 ["@function.call.tsx"]       = { fg = "$md_yellow" },
                 ["@function.builtin.tsx"]    = { fg = "$md_yellow" },
