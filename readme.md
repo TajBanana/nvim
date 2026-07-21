@@ -6,6 +6,31 @@ Requires **Neovim v0.11+** (uses the `vim.lsp.config`/`vim.lsp.enable` native LS
 
 > For the **reasoning** behind these choices — the nvm/PATH fix, the Kotlin/Java LSP quirks, the GitLab and repo-lint design, the inlay-hint support matrix — see **[docs/design-decisions.md](docs/design-decisions.md)**.
 
+## Prerequisites
+
+Install these before first launch — most failures without them are silent or cryptic:
+
+| Tool                        | Needed for                                                         |
+|-----------------------------|--------------------------------------------------------------------|
+| Neovim **v0.11+**           | The whole config (native LSP API)                                  |
+| A **Nerd Font**             | File-tree / statusline icons (garbled boxes without one)           |
+| **ripgrep**                 | `Space fw` live grep (silently finds nothing without it)           |
+| **make** + a C compiler     | telescope-fzf-native builds on first `:Lazy` install               |
+| **node** (or nvm)           | All node-based LSPs and prettier (die with exit 127 without it)    |
+| **tree-sitter** CLI         | Treesitter parser installs (`brew install tree-sitter-cli`)        |
+| **lazygit**                 | `Space lg`                                                         |
+
+Per-language, only if you use them: a **JDK** (Java's jdtls and your Gradle builds; Kotlin's kotlin-lsp bundles its own runtime and needs no separate JDK), **go**, **rustup/cargo**, **python3 + ruff** (`Space xr` on Python repos), and **glab** (optional, better `Space gm` — see the GitLab section).
+
+macOS quick start:
+
+```
+brew install neovim ripgrep tree-sitter-cli lazygit glab
+brew install --cask font-jetbrains-mono-nerd-font   # matches .wezterm.lua
+```
+
+Portability notes: the node PATH fix looks for nvm in `~/.nvm` (a system node on PATH also works); the rustup PATH fix assumes Homebrew on macOS (`/opt/homebrew/opt/rustup/bin`); the lazygit *color theme* lives in lazygit's own config outside this repo, so `Space lg` works everywhere but only matches this palette if you theme it separately.
+
 ## Setup
 
 Clone this repo into `~/.config` and name it `nvim`:
