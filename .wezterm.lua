@@ -7,7 +7,11 @@ local config = wezterm.config_builder()
 local action = wezterm.action
 
 -- This is where you actually apply your config choices
-config.font_size = 17.0
+config.font = wezterm.font_with_fallback({
+    "JetBrainsMono Nerd Font",
+    "Symbols Nerd Font Mono",
+})
+config.font_size = 16.0
 config.initial_rows = 48
 config.initial_cols = 160
 
@@ -24,6 +28,8 @@ config.colors = {
 }
 
 config.keys = {
+    -- let Opt+Enter reach nvim (code actions) instead of toggling fullscreen
+    { mods = "OPT", key = "Enter", action = action.DisableDefaultAssignment },
     { mods = "OPT", key = "LeftArrow",  action = action.SendKey({ mods = "ALT", key = "b" }) },
     { mods = "OPT", key = "RightArrow", action = action.SendKey({ mods = "ALT", key = "f" }) },
     { mods = "CMD", key = "LeftArrow",  action = action.SendKey({ mods = "CTRL", key = "a" }) },
@@ -61,6 +67,38 @@ config.window_padding = {
     top = 0,
     bottom = 0,
 }
+
+-- Title each tab by its working-directory basename (the project/repo folder)
+-- instead of the generic foreground-process name ("nvim"). Works for shell and
+-- nvim tabs alike, since it reads the pane's cwd rather than the running program.
+local function pane_dir_basename(pane)
+    local uri = pane.current_working_dir
+    if not uri then
+        return nil
+    end
+    -- newer wezterm exposes a Url object with .file_path; older gives a string
+    local path = type(uri) == "userdata" and uri.file_path
+        or tostring(uri):gsub("^file://[^/]*", "")
+    if not path or path == "" then
+        return nil
+    end
+    path = path:gsub("/+$", "") -- drop trailing slash
+    if path == "" or path == os.getenv("HOME") then
+        return "~"
+    end
+    return path:match("([^/]+)$") -- basename
+end
+
+wezterm.on("format-tab-title", function(tab)
+    local pane = tab.active_pane
+    local title = pane_dir_basename(pane)
+    if not title then
+        -- fall back to the process name if cwd is unknown (e.g. remote pane)
+        local proc = pane.foreground_process_name or ""
+        title = proc:match("([^/]+)$") or "shell"
+    end
+    return string.format(" %d: %s ", tab.tab_index + 1, title)
+end)
 
 -- and finally, return the configuration to wezterm
 return config

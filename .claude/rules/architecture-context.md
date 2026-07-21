@@ -1,0 +1,1 @@
+../../.skillforge/rules/architecture-context/architecture-context.md

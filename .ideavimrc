@@ -3,14 +3,34 @@ let mapleader=" "
 
 set incsearch
 set scrolloff=8
+set ignorecase
 
-map <leader>cl :noh<CR>
-nnoremap <leader>ff :action SearchEverywhere<CR>
-nnoremap <leader>fw :action FindInPath<CR>
-nnoremap <leader>gd :action GotoDeclaration<CR>
+"map <leader>cl :noh<CR>
+nmap <leader>ff <Action>(SearchEverywhere)
+nmap <leader>fw <Action>(FindInPath)
+nmap <leader>gd <Action>(GotoDeclaration)
+nmap <leader>tt <Action>(RunClass)
+nmap <leader>oo <Action>(VcsShowPrevChangeMarker)
+nmap <leader>pp <Action>(VcsShowNextChangeMarker)
+nmap [e <Action>(GotoPreviousError)
+nmap ]e <Action>(GotoNextError)
+nmap <leader>e <Action>(ShowErrorDescription)
+nmap <leader>rr <Action>(Run)
+nmap <leader>rt <Action>(Stop)
+nmap <leader>gl <Action>(GitLab.Open.In.Browser)
+nmap <leader>mr <Action>(GitLab.Merge.Request.Show.In.Toolwindow)
+nmap <leader>gh <Action>(Vcs.ShowTabbedFileHistory)
+nmap <leader>gb <Action>(Annotate)
+nmap <leader>mp <Action>(ManageRecentProjects)
+
+nmap <leader>rf <Action>(RenameElement)
 
 set clipboard=unnamed
 
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-commentary'
 
+nmap <leader>gf <Action>(Javascript.Linters.EsLint.Fix)
+
+nnoremap <C-d> <C-d>zz
+nnoremap <C-u> <C-u>zz

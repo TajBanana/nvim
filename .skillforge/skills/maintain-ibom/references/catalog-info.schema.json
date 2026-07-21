@@ -1,0 +1,672 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://maintain-ibom/catalog-info.schema.json",
+  "title": "maintain-ibom — catalog-info entity (structural schema)",
+  "description": "The machine-readable output contract for ONE document of a maintain-ibom `catalog-info.yaml` — `kind` ∈ {Component, System, Domain, Resource, API} — with its `interface.*` reconciliation-ledger annotations. Authoritative structural form of references/ledger-validation.md (§1 H-rules) + references/backstage-entities.md; identifiers per references/interface-taxonomy.md. STRUCTURAL only: shape / enums / patterns / required fields. It does NOT enforce semantic + cross-entity rules (review-rollup precedence, candidate-not-an-edge, exact identifier membership in interface-taxonomy.md, absorbed-copy cross-repo consistency, federation completeness) — those are the P/R/C policy rules applied over the whole file. A multi-document catalog-info.yaml is split on `---` and each document validated against this schema (the top-level oneOf dispatches on `kind`). Consumed by the runtime (constrain generation) and the CI validator.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ComponentDoc"
+    },
+    {
+      "$ref": "#/$defs/SystemDoc"
+    },
+    {
+      "$ref": "#/$defs/DomainDoc"
+    },
+    {
+      "$ref": "#/$defs/ResourceDoc"
+    },
+    {
+      "$ref": "#/$defs/ApiDoc"
+    }
+  ],
+  "$defs": {
+    "ComponentDoc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "properties": {
+        "apiVersion": {
+          "const": "backstage.io/v1alpha1"
+        },
+        "kind": {
+          "const": "Component"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadataWithSourceLocation"
+        },
+        "spec": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type",
+            "lifecycle",
+            "owner"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "service",
+                "website",
+                "library",
+                "tool",
+                "documentation",
+                "deployment",
+                "chart",
+                "template",
+                "data-pipeline",
+                "worker",
+                "other"
+              ],
+              "description": "Org-defined types extend this enum."
+            },
+            "lifecycle": {
+              "$ref": "#/$defs/lifecycle"
+            },
+            "owner": {
+              "$ref": "#/$defs/ownerRef"
+            },
+            "system": {
+              "$ref": "#/$defs/systemRef"
+            },
+            "providesApis": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/apiRef"
+              }
+            },
+            "consumesApis": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/apiRef"
+              }
+            },
+            "dependsOn": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/anyRef"
+              }
+            },
+            "subcomponentOf": {
+              "$ref": "#/$defs/componentRef"
+            }
+          }
+        }
+      }
+    },
+    "SystemDoc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "properties": {
+        "apiVersion": {
+          "const": "backstage.io/v1alpha1"
+        },
+        "kind": {
+          "const": "System"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadataWithSourceLocation"
+        },
+        "spec": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "owner"
+          ],
+          "properties": {
+            "owner": {
+              "$ref": "#/$defs/ownerRef"
+            },
+            "domain": {
+              "$ref": "#/$defs/domainRef"
+            }
+          }
+        }
+      }
+    },
+    "DomainDoc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "description": "A product/portfolio family grouping systems (assemblies/releases).",
+      "properties": {
+        "apiVersion": {
+          "const": "backstage.io/v1alpha1"
+        },
+        "kind": {
+          "const": "Domain"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadataWithSourceLocation"
+        },
+        "spec": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "owner"
+          ],
+          "properties": {
+            "owner": {
+              "$ref": "#/$defs/ownerRef"
+            }
+          }
+        }
+      }
+    },
+    "ResourceDoc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "properties": {
+        "apiVersion": {
+          "const": "backstage.io/v1alpha1"
+        },
+        "kind": {
+          "const": "Resource"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadataMinimal"
+        },
+        "spec": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type",
+            "owner"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "minLength": 1,
+              "description": "e.g. database, message-broker, secret-store, object-store, container-registry — org-defined."
+            },
+            "owner": {
+              "$ref": "#/$defs/ownerRef"
+            },
+            "system": {
+              "$ref": "#/$defs/systemRef"
+            },
+            "dependsOn": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/anyRef"
+              }
+            },
+            "dependencyOf": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/anyRef"
+              }
+            }
+          }
+        }
+      }
+    },
+    "ApiDoc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "properties": {
+        "apiVersion": {
+          "const": "backstage.io/v1alpha1"
+        },
+        "kind": {
+          "const": "API"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadataApi"
+        },
+        "spec": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "type",
+            "lifecycle",
+            "owner",
+            "definition"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "minLength": 1,
+              "description": "openapi | asyncapi | graphql | grpc | org-defined (e.g. json-schema, sql, websocket)."
+            },
+            "lifecycle": {
+              "$ref": "#/$defs/lifecycle"
+            },
+            "owner": {
+              "$ref": "#/$defs/ownerRef"
+            },
+            "system": {
+              "$ref": "#/$defs/systemRef"
+            },
+            "definition": {
+              "type": "object",
+              "minProperties": 1,
+              "description": "$text / $yaml / $json path substitution, or inline."
+            }
+          }
+        }
+      }
+    },
+    "metadataWithSourceLocation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "annotations"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/entityName"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "links": {
+          "$ref": "#/$defs/links"
+        },
+        "annotations": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ledgerAnnotationProps"
+            }
+          ],
+          "required": [
+            "backstage.io/source-location",
+            "interface.provenance",
+            "interface.discovery/mode",
+            "interface.discovery/confidence",
+            "interface.discovery/checked-at",
+            "interface.review"
+          ]
+        }
+      }
+    },
+    "metadataMinimal": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "annotations"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/entityName"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "links": {
+          "$ref": "#/$defs/links"
+        },
+        "annotations": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ledgerAnnotationProps"
+            }
+          ],
+          "required": [
+            "interface.provenance",
+            "interface.discovery/mode",
+            "interface.discovery/confidence",
+            "interface.discovery/checked-at",
+            "interface.review"
+          ]
+        }
+      }
+    },
+    "metadataApi": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "annotations"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/entityName"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "links": {
+          "$ref": "#/$defs/links"
+        },
+        "annotations": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ledgerAnnotationProps"
+            }
+          ],
+          "required": [
+            "interface.provenance",
+            "interface.discovery/mode",
+            "interface.discovery/confidence",
+            "interface.discovery/checked-at",
+            "interface.review",
+            "interface.visibility"
+          ]
+        }
+      }
+    },
+    "provenanceTier": {
+      "type": "string",
+      "enum": [
+        "human",
+        "registry",
+        "contract",
+        "manifest",
+        "code",
+        "docs",
+        "guessed"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "native",
+        "ai"
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "reviewState": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "needs-review",
+        "contradicted",
+        "needs-owner"
+      ]
+    },
+    "lifecycle": {
+      "type": "string",
+      "enum": [
+        "experimental",
+        "production",
+        "deprecated"
+      ],
+      "description": "Org-defined lifecycles extend this enum."
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "public",
+        "partner",
+        "internal",
+        "system-private",
+        "component-private",
+        "external"
+      ]
+    },
+    "coordination": {
+      "type": "string",
+      "enum": [
+        "immutable-snapshot",
+        "single-writer",
+        "locked"
+      ]
+    },
+    "immutableRef": {
+      "type": "string",
+      "pattern": "^(v?[0-9]+\\.[0-9]+\\.[0-9]+([-.+][0-9A-Za-z.-]+)*|[0-9a-f]{7,40})$",
+      "description": "A SEMVER tag or 7-40-char commit sha. Rejects HEAD / branch names / moving refs."
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^v?[0-9]+\\.[0-9]+\\.[0-9]+([-.+][0-9A-Za-z.-]+)*$"
+    },
+    "entityName": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*[a-z0-9]$",
+      "maxLength": 63
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(group:|user:)?([a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$",
+      "description": "Backstage owner ref: bare name, ns/name, or group:/user: kind. Rejects wrong-kind (e.g. team:) and free-text/spaces."
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^(system:)?([a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$"
+    },
+    "domainRef": {
+      "type": "string",
+      "pattern": "^(domain:)?([a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$"
+    },
+    "apiRef": {
+      "type": "string",
+      "pattern": "^(api:)?([a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$"
+    },
+    "componentRef": {
+      "type": "string",
+      "pattern": "^(component:)?([a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$"
+    },
+    "anyRef": {
+      "type": "string",
+      "pattern": "^(component:|resource:|api:|system:)?([a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$"
+    },
+    "candidateValue": {
+      "type": "string",
+      "pattern": "^provenance=(human|registry|contract|manifest|code|docs|guessed);confidence=(high|medium|low);review=(ok|needs-review|contradicted|needs-owner)(;absorbed=[^@;]+@(v?[0-9]+\\.[0-9]+\\.[0-9]+([-.+][0-9A-Za-z.-]+)*|[0-9a-f]{7,40}))?$",
+      "description": "Single line: three required keys in order, plus an OPTIONAL fourth `absorbed=<ref>@<immutable>` naming the vendored member this surface was copied from, and the revision it was read at (C9a). Rejects unknown keys (direction=) and invalid values (review=needs-match). WHY THE FOURTH KEY: a surface recovered by vendoring a member is a constraint-forced copy — an absorption — but it usually cannot become an API entity yet (no owner, no catalog entity), so it parks in the candidate lane. With only three keys it was indistinguishable from a surface the parent derived from its own manifests — an UNDECLARED duplication of someone else's responsibility, i.e. a silent twin, which is never permitted: every absorption declares its provenance. `absorbed=` is what lets a vendored surface be a candidate AND declare its provenance-of-copy. POLICY (C9): <immutable> should be the FETCHED COMMIT SHA recorded in that member's `interface.vendored/<member>` slot (same ground-truth argument as C10), not the tag echoed back; the pattern accepts a SEMVER tag for backward compatibility, matching `absorbedSource`."
+    },
+    "nameList": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*(, *[a-z0-9][a-z0-9-]*)*$"
+    },
+    "fieldList": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9-]*(, *[a-zA-Z][a-zA-Z0-9-]*)*$"
+    },
+    "implementsList": {
+      "type": "string",
+      "pattern": "^(standard|package|platform|protocol|schema|security|ux):[a-z0-9-]+(, *(standard|package|platform|protocol|schema|security|ux):[a-z0-9-]+)*$",
+      "description": "Family:identifier grammar only; exact membership is a POLICY check against interface-taxonomy.md (single source of truth)."
+    },
+    "memberRefList": {
+      "type": "string",
+      "pattern": "^(component:|resource:|api:|system:)?([a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*(, *(component:|resource:|api:|system:)?([a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*)*$",
+      "description": "Comma list of member refs — Components/Resources/APIs for an assembly/release System; member Systems for a product Domain."
+    },
+    "absorbedSource": {
+      "type": "string",
+      "pattern": "^[^@]+@(v?[0-9]+\\.[0-9]+\\.[0-9]+([-.+][0-9A-Za-z.-]+)*|[0-9a-f]{7,40})$",
+      "description": "<name>@<version> where <version> is a SEMVER tag or sha. Rejects a branch/namespace (e.g. @umbrella, @feature-x)."
+    },
+    "ledgerAnnotationProps": {
+      "type": "object",
+      "description": "Backstage annotations are a flat string→string map. The interface.* ledger vocabulary is constrained; any other annotation (backstage.io/*, org keys) is permitted as a string. `required` is set per kind by the metadata wrapper.",
+      "properties": {
+        "backstage.io/source-location": {
+          "type": "string",
+          "pattern": "^url:.+"
+        },
+        "interface.maintained-by": {
+          "const": "maintain-ibom",
+          "description": "Self-describing provenance marker: this entity is a maintain-ibom reconciliation-ledger fact. Machine-readable twin of the top-of-file banner comment — it survives comment-stripping tooling and lets an agent/tool that opens the file discover it must mutate the ledger through the maintain-ibom skill, not by hand. Emitted on the primary/root entity (a tool may ingest any single split document). NOT an interface fact — ledger provenance."
+        },
+        "interface.ledger/schema": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional echo of the structural schema this ledger targets (a path or URL) — the machine twin of the `# yaml-language-server: $schema=` modeline. STRUCTURAL only: conformance here is shape/enum/pattern, NOT the semantic P/R/C/federation rules (those are the skill's validator). Kept configurable so no infrastructure path is hard-baked into a portable ledger."
+        },
+        "interface.provenance": {
+          "$ref": "#/$defs/provenanceTier"
+        },
+        "interface.discovery/mode": {
+          "$ref": "#/$defs/mode"
+        },
+        "interface.discovery/confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "interface.discovery/tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interface.discovery/checked-at": {
+          "$ref": "#/$defs/immutableRef"
+        },
+        "interface.version": {
+          "$ref": "#/$defs/semver"
+        },
+        "interface.review": {
+          "$ref": "#/$defs/reviewState"
+        },
+        "interface.review/fields": {
+          "$ref": "#/$defs/fieldList"
+        },
+        "interface.review/ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interface.implements": {
+          "$ref": "#/$defs/implementsList"
+        },
+        "interface.consumes/candidate": {
+          "$ref": "#/$defs/nameList"
+        },
+        "interface.provides/candidate": {
+          "$ref": "#/$defs/nameList"
+        },
+        "interface.members": {
+          "$ref": "#/$defs/memberRefList"
+        },
+        "interface.visibility": {
+          "$ref": "#/$defs/visibility"
+        },
+        "interface.direction": {
+          "const": "absorbed"
+        },
+        "interface.absorbed/source": {
+          "$ref": "#/$defs/absorbedSource"
+        },
+        "interface.absorbed/coordination": {
+          "$ref": "#/$defs/coordination"
+        },
+        "interface.absorbed/reconciliation-owner": {
+          "$ref": "#/$defs/ownerRef"
+        },
+        "interface.absorbed/request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interface.federation/degraded": {
+          "$ref": "#/$defs/degradedList"
+        },
+        "interface.federation": {
+          "$ref": "#/$defs/federationCount"
+        },
+        "interface.federation/mode": {
+          "$ref": "#/$defs/federationMode"
+        },
+        "interface.federation/referenced": {
+          "$ref": "#/$defs/federationCount"
+        },
+        "interface.federation/stale": {
+          "$ref": "#/$defs/federationCount"
+        }
+      },
+      "patternProperties": {
+        "^interface\\.provenance/[a-zA-Z][a-zA-Z0-9-]*$": {
+          "$ref": "#/$defs/provenanceTier"
+        },
+        "^interface\\.(consumes|provides)/candidate/[a-z0-9][a-z0-9-]*$": {
+          "$ref": "#/$defs/candidateValue"
+        },
+        "^interface\\.vendored/[a-z0-9][a-z0-9._-]*$": {
+          "$ref": "#/$defs/vendoredValue"
+        }
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "degradedList": {
+      "type": "string",
+      "pattern": "^(component:|resource:|api:|system:)?([a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*@(v?[0-9]+\\.[0-9]+\\.[0-9]+([-.+][0-9A-Za-z.-]+)*|[0-9a-f]{7,40})(, *(component:|resource:|api:|system:)?([a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*@(v?[0-9]+\\.[0-9]+\\.[0-9]+([-.+][0-9A-Za-z.-]+)*|[0-9a-f]{7,40}))*$",
+      "description": "Comma list of unreadable-member holes, each <ref>@<immutable-ref> (SEMVER tag or sha; rejects a branch)."
+    },
+    "federationCount": {
+      "type": "string",
+      "pattern": "^[0-9]+/[0-9]+$",
+      "description": "Count M/N. Shared by interface.federation (slots FILLED = vendored+referenced), /referenced (truly federated), /stale. Only /referenced is a federation claim; interface.federation is not. See ledger-validation.md C8."
+    },
+    "vendoredValue": {
+      "type": "string",
+      "pattern": "^source=(component:|resource:|api:|system:)?([a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*@(v?[0-9]+\\.[0-9]+\\.[0-9]+([-.+][0-9A-Za-z.-]+)*|[0-9a-f]{7,40});pinned=((v?[0-9]+\\.[0-9]+\\.[0-9]+([-.+][0-9A-Za-z.-]+)*|[0-9a-f]{7,40})|unresolvable);provenance=(human|registry|contract|manifest|code|docs|guessed);confidence=(high|medium|low);review=(ok|needs-review|contradicted|needs-owner);stale=(true|false)$",
+      "description": "Vendored slot: single line, exactly six keys in order. POLICY (C10): `source` should be the FETCHED COMMIT SHA (git rev-parse), not the tag echoed back; the pattern still accepts a SEMVER tag. `pinned` is an immutable ref, or the sentinel `unresolvable` as a last resort (a pre-release tag embedding a sha must be resolved). stale=true iff the fetched sha differs from the revision `pinned` resolves to."
+    },
+    "federationMode": {
+      "type": "string",
+      "enum": [
+        "vendored",
+        "referenced",
+        "mixed"
+      ]
+    }
+  }
+}

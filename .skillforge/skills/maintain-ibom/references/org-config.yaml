@@ -1,0 +1,55 @@
+# org-config.yaml — the estate this skill is pointed at.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# THIS IS THE ONLY FILE AN ADOPTING ORG EDITS.
+#
+# Every rule in SKILL.md and the other references/ files is estate-neutral and
+# uses generic examples. Every value that binds this skill to one organization's
+# infrastructure lives here, and nowhere else.
+#
+# The skill enforces exactly this rule on the repos it scans — an interface
+# hard-coded to one org's infrastructure is not foreign-deployable — so the
+# skill must not hard-code its own. This file is how it complies: the anchors are
+# DATA, the rules are not.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# PRECEDENCE — an explicit run input WINS over the value here:
+#     run input  >  this file  >  (nothing: ask, do not guess)
+# So a one-off run against another estate needs no edit at all; pass the input.
+# Editing this file is for an org ADOPTING the skill as its default.
+#
+# If a value here is wrong for your estate, resolution fails loudly rather than
+# silently: members stop resolving (§2's existence probe returns non-zero) and
+# every member degrades to a hole. A wrong anchor is noisy, not silent.
+
+# Repo-path anchor. Members resolve as:
+#   <git_host>/<org_path_prefix>/<solution>/<item-type>/<name>
+org_path_prefix: ams/airlab-sg
+
+# Clone host (the bare `git clone` / `git show` origin).
+git_host: gitlab.thalesdigital.io
+
+# Where the org path begins inside a container image coordinate.
+# Used ONLY to CORROBORATE a registry resolution — never to replace it
+# (references/dependency-management.md §1.1–§1.2: coordinate-parsing misresolves).
+image_registry_prefix: private-docker-ams
+
+# The name -> (solution, item-type) registry: the repo that carries it, and the
+# path inside that repo. Compose-only: a leaf component repo never needs it.
+onboarding_registry:
+  repo: onboarding # resolved under <org_path_prefix>
+  path: inputs/solutions/
+  # The env var a dev sets to point at a local clone of the registry, so the skill
+  # reads it without cloning. The NAME is estate config: this org's devs already
+  # have AIRLAB_ONBOARDING_REPO exported, so that name ships here rather than being
+  # renamed out from under them. An adopting org points this at its own var.
+  # The references/ prose calls it `$<onboarding_env_var>` — this is the value.
+  env_var: AIRLAB_ONBOARDING_REPO
+
+# How this org files repos. Change it if your org's layout differs; the three
+# coordinates (solution, item-type, name) are what make a name unique — a bare
+# name is not unique on its own.
+repo_path_convention: "<org_path_prefix>/<solution>/<item-type>/<name>"
+
+# Item-type segments in use on this estate (the <item-type> above).
+item_types: [components, assemblies, releases]

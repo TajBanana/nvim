@@ -1,0 +1,1 @@
+../../.skillforge/rules/commit-rules/commit-rules.md
