@@ -24,6 +24,7 @@ No manual sync step is needed. If something looks off, run `:Lazy` to check plug
 
 - `init.lua` — loads core settings, then bootstraps lazy.nvim
 - `lua/tajbanana/set.lua` — core Vim settings, keymaps, and custom functions (leader = Space)
+- `lua/tajbanana/gitlab.lua` — **GitLab-only** shortcuts (see below), isolated because they assume a GitLab remote
 - `lua/plugins/` — one lazy.nvim spec file per concern (lsp, telescope, colorscheme, git, ui, ...)
 
 ## Also in this repo
@@ -35,6 +36,39 @@ ln -s ~/.config/nvim/.ideavimrc ~/.ideavimrc
 ```
 
 **`.wezterm.lua`** — WezTerm terminal config. Symlink or copy it to wherever WezTerm looks for config (e.g. `~/.wezterm.lua`).
+
+## GitLab-only shortcuts
+
+These keymaps assume the current file's git remote points at a **GitLab**
+instance — they build GitLab web URLs and will produce wrong links on GitHub,
+Bitbucket, or other forges. They live in their own module,
+`lua/tajbanana/gitlab.lua`, so the GitLab assumption stays in one place; delete
+the `require("tajbanana.gitlab").setup()` line in `set.lua` to disable them, or
+swap the module for a different forge.
+
+`<leader>gm` prefers [`glab`](https://gitlab.com/gitlab-org/cli) (the official
+GitLab CLI) when it's installed — it looks up the MR by source branch via the
+API, which is robust to the local branch SHA drifting from the pushed MR head.
+If `glab` isn't installed it falls back to a token-free `git ls-remote` lookup
+(no CLI, no API token). `<leader>gl` is always token-free. To set glab up:
+`brew install glab` then `glab auth login --hostname <your-host> --stdin`
+(paste a PAT with `api` scope).
+
+Resolving a branch's MR is a network round-trip to the GitLab server (~1–2s,
+mostly latency — the call is async, so nvim never blocks). The first
+`<leader>gm` on a branch shows a brief "Looking up merge request…" while it
+resolves; the result is cached for the nvim session, so subsequent opens of the
+same branch's MR are instant. A "no MR yet" result is not cached, so a
+freshly-created MR is picked up on the next press.
+
+| Keymap | Mode | Action |
+|--------|------|--------|
+| `<leader>gm` | normal | Open the current branch's merge request (or the create page if none exists yet) |
+| `<leader>gl` | normal | Open the current file + cursor line on GitLab (`…/-/blob/<branch>/<path>#L<n>`) |
+| `<leader>gl` | visual | Open the selected line range on GitLab (`#L<start>-<end>`) |
+
+`<leader>gl` links to the **current branch**, so the branch must be pushed —
+an unpushed branch's blob URL will 404.
 
 ## LSP servers and formatters
 

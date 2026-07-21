@@ -13,8 +13,10 @@ Requires Neovim v0.11+ (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP AP
 **Entry point:** `init.lua` loads core settings then bootstraps lazy.nvim, which auto-discovers plugin specs from `lua/plugins/`.
 
 **Two key directories:**
-- `lua/tajbanana/set.lua` — Core Vim settings, keymaps, and custom functions (leader = Space). This is loaded first before any plugins.
+- `lua/tajbanana/set.lua` — Core Vim settings, keymaps, and custom functions (leader = Space). This is loaded first before any plugins. It `require`s `lua/tajbanana/gitlab.lua` for the GitLab-only shortcuts.
 - `lua/plugins/` — Each file returns a lazy.nvim plugin spec table (or list of tables). Lazy auto-loads all files in this directory.
+
+`lua/tajbanana/gitlab.lua` is a standalone module (not a plugin spec) holding **GitLab-specific** shortcuts (`<leader>gm` open/create MR, `<leader>gl` open file/line in the browser). It is deliberately isolated because it builds GitLab web URLs that do not work on other forges; keep forge-specific assumptions here, not in `set.lua`.
 
 **Plugin organization by file:**
 - `lsp.lua` — nvim-lspconfig + Mason (auto-installs LSP servers) + nvim-cmp (completion)

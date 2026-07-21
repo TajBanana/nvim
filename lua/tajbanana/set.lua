@@ -96,77 +96,9 @@ function ToggleTerminal()
   end
 end
 
--- Open the current branch's GitLab MR (existing one if found, else the create
--- page). Token-free: no glab or API token required.
-local function open_gitlab_mr()
-    local dir = vim.fn.expand("%:p:h")
-    local function git(args)
-        return vim.trim(vim.fn.system("git -C " .. vim.fn.shellescape(dir) .. " " .. args))
-    end
-    local branch = git("branch --show-current")
-    if vim.v.shell_error ~= 0 or branch == "" then
-        vim.notify("Not on a git branch", vim.log.levels.WARN)
-        return
-    end
-    -- Prefer the branch's configured upstream remote; fall back to origin
-    local remote_name = git("config --get branch." .. vim.fn.shellescape(branch) .. ".remote")
-    if vim.v.shell_error ~= 0 or remote_name == "" then
-        remote_name = "origin"
-    end
-    local remote = git("remote get-url " .. vim.fn.shellescape(remote_name))
-    if vim.v.shell_error ~= 0 or remote == "" then
-        vim.notify("No git remote '" .. remote_name .. "'", vim.log.levels.WARN)
-        return
-    end
-    -- Normalize any remote URL form (scp-like, ssh://, https://) to its https web
-    -- base, dropping the .git suffix, embedded credentials, and any ssh port
-    local function to_web_url(url)
-        url = url:gsub("%.git$", "")
-        local host, path = url:match("^[%w._-]+@([^:/]+):(.+)$") -- scp-like: git@host:group/repo
-        if host then
-            return "https://" .. host .. "/" .. path
-        end
-        local rest = url:match("^%a[%w+.-]*://(.+)$") -- scheme://[user[:pass]@]host[:port]/path
-        if rest then
-            rest = rest:gsub("^[^@/]+@", "") -- strip userinfo
-            local h, p = rest:match("^([^/]+)(/.*)$")
-            if h then
-                return "https://" .. h:gsub(":%d+$", "") .. p -- drop port
-            end
-        end
-        return url
-    end
-    local base = to_web_url(remote)
-    local create_url = base .. "/-/merge_requests/new?merge_request%5Bsource_branch%5D=" .. branch
-    -- GitLab publishes MR heads as refs; match the remote branch SHA to find
-    -- an existing MR without needing glab or an API token
-    vim.system(
-        { "git", "ls-remote", remote_name, "refs/heads/" .. branch, "refs/merge-requests/*/head" },
-        { cwd = dir, text = true },
-        vim.schedule_wrap(function(out)
-            if out.code ~= 0 then
-                vim.notify("git ls-remote failed: " .. vim.trim(out.stderr or ""), vim.log.levels.ERROR)
-                return
-            end
-            local branch_sha, best
-            local mrs = {}
-            for line in (out.stdout or ""):gmatch("[^\n]+") do
-                local sha, ref = line:match("^(%x+)%s+(%S+)$")
-                if ref == "refs/heads/" .. branch then
-                    branch_sha = sha
-                elseif ref then
-                    local iid = ref:match("^refs/merge%-requests/(%d+)/head$")
-                    if iid then mrs[#mrs + 1] = { iid = tonumber(iid), sha = sha } end
-                end
-            end
-            for _, m in ipairs(mrs) do
-                if m.sha == branch_sha and (not best or m.iid > best) then best = m.iid end
-            end
-            vim.ui.open(best and (base .. "/-/merge_requests/" .. best) or create_url)
-        end)
-    )
-end
-vim.keymap.set("n", "<leader>gm", open_gitlab_mr, { desc = "Open/create GitLab MR" })
+-- GitLab-only shortcuts (<leader>gm open MR, <leader>gl open line in browser)
+-- live in their own module since they assume a GitLab remote — see gitlab.lua.
+require("tajbanana.gitlab").setup()
 
 -- Map F2 in both Normal and Terminal modes to the same function
 vim.keymap.set('n', '<F2>', ToggleTerminal, { silent = true, desc = "Toggle terminal" })
