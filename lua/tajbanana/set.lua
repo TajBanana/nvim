@@ -65,6 +65,9 @@ vim.api.nvim_create_autocmd("WinScrolled", {
 -- NOTE: vim.filetype.add patterns are implicitly anchored (^...$) on nvim
 -- 0.11+, so a leading .* is required to match the path prefix.
 vim.filetype.add({
+    extension = {
+        iml = "xml", -- IntelliJ module files are XML; nvim doesn't detect them
+    },
     pattern = {
         [".*%.ya?ml%.gotmpl"] = { "helm", { priority = 10 } },
         [".*%.gotmpl"] = "gotmpl",

@@ -11,6 +11,8 @@ return {
             "tsx",
             "java",
             "kotlin",
+            "scala",
+            "groovy", -- also colours *.gradle (filetype groovy)
             "lua",
             "vim",
             "vimdoc",
@@ -22,6 +24,9 @@ return {
             "yaml",
             "graphql",
             "json",
+            "xml",        -- also *.iml, via the set.lua filetype rule
+            "toml",
+            "properties", -- registered onto the jproperties filetype below
             "python",
             "go",
             "bash",
@@ -31,6 +36,10 @@ return {
             "gotmpl",
             "helm",
         }
+
+        -- nvim assigns *.properties the "jproperties" filetype, but the parser
+        -- is named "properties" — map them so treesitter.start finds it.
+        vim.treesitter.language.register("properties", "jproperties")
 
         -- The main branch no longer starts highlighting automatically;
         -- attach treesitter to every buffer that has a parser

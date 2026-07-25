@@ -78,13 +78,46 @@ kotlin-lsp (v261+; this machine runs v262) **advertises** the inlayHint capabili
 
 ---
 
-## Colors: onedark + a Material Darker palette, tuned to IntelliJ parity
+## Colors: onedark + a Material Darker palette, one consistent scheme
 
-**Context.** The goal is pixel-level parity with IntelliJ's Material Darker scheme across TSX/TS/Kotlin (and every other installed language), so switching editors isn't jarring.
+**Context.** The scheme originally chased pixel-level IntelliJ parity, which meant
+*per-language* overrides — free functions were yellow in TS/TSX but blue in
+Kotlin/Go/Lua, primitives purple in TS/Kotlin but cyan elsewhere. That divergence
+made colours feel unpredictable when jumping between files, so the goal shifted to
+**one consistent role→colour mapping applied identically in every language**.
 
-**Decision.** Base is onedark.nvim (`deep` style) with a custom Material Darker palette and extensive per-capture overrides in `lua/plugins/colorscheme.lua`.
+**Decision.** Base is onedark.nvim (`deep` style) with a custom Material Darker
+palette in `lua/plugins/colorscheme.lua`. Each capture is defined **once**; there
+are **no** `.tsx`/`.typescript`/`.kotlin`/`.java`/… overrides — language-scoped
+captures fall back to the base, so a role is the same colour everywhere.
 
-**How.** Three layers stack: Treesitter captures (`@keyword`, `@type`, …), then LSP semantic tokens (`@lsp.type.*`) at higher priority for language-accurate coloring, and language-scoped overrides (`@type.builtin.tsx`, etc.) for per-language differences. Parity was established by pixel-sampling IntelliJ screenshots and matching hex values; `:Inspect` finds the group under any token. Key IntelliJ rules encoded: keywords/booleans/null/this purple italic; interfaces green italic; primitive types purple italic; free functions yellow (TS) or blue (Kotlin); methods blue; classes/types yellow; annotations purple italic.
+**How.** Two layers: Treesitter captures (`@keyword`, `@type`, …) and LSP semantic
+tokens (`@lsp.type.*`, higher priority, the source of truth wherever a server
+provides them). The role→colour mapping: functions/methods **blue**; types /
+classes / enums / constructors / namespaces / generics **yellow**; interfaces
+**green italic**; primitive types (`string`/`int`/`bool`) **cyan**; variables /
+constants **white**; parameters / numbers / enum-members **orange**; properties /
+fields **grey-blue**; keywords / booleans / null / this / annotations **purple
+italic**; strings **green**; operators / punctuation **cyan**; comments **grey**;
+tags **red**. The keyword family is generated from one list. `:Inspect` finds the
+group under any token.
+
+**Completeness.** Beyond the primary roles, the table also pins the low-frequency
+fallback/sub-captures that grammars emit — `@comment.documentation`, `@string.special`,
+`@function.macro`/`@lsp.type.macro`, `@lsp.typemod.property.static`/`.readonly`,
+`@none`, `@label`, and the `@markup.*` family — because onedark's own defaults for
+those are off-palette (darker greys, reds, teals). A 20-language headless audit
+([2026-07-26](2026-07-26-cross-language-color-audit.md)) confirmed the scheme is
+correct wherever it is defined and surfaced exactly these unmapped captures as the
+only defects; they are now all mapped. What remains are LSP/grammar quirks (e.g.
+rust_analyzer mis-classification, ts_ls not emitting `interface` tokens), not
+scheme gaps — see that audit for the list.
+
+**Trade-offs.** Dropped IntelliJ pixel-parity for predictability — the historical
+per-language values are recorded in `tsx-intellij-color-parity.md` and the
+2026-07-20 audit, now superseded by this scheme. A few nuances went away with the
+overrides: JSX component vs builtin tags are no longer distinguished (all tags
+red), and `bold` on tsx constructors dropped.
 
 **Trade-offs.** It's a large declarative table, but flat and single-concern. Per-language scoping (`.tsx` vs `.typescript`) is verbose but necessary — the same capture legitimately differs by language in IntelliJ.
 
