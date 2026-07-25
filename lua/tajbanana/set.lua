@@ -46,34 +46,34 @@ vim.opt.showcmdloc = "statusline"
 -- explicitly, so this does not double up there.
 vim.opt.winborder = "rounded"
 
--- nvm is lazy-loaded in .zshrc, so node is usually missing from PATH when
--- nvim starts and Mason's node-based LSP servers (ts_ls, yamlls, ...) die
--- with exit 127. Prepend the newest nvm node unless node is already found.
-if vim.fn.executable("node") == 0 then
-    local bins = vim.fn.glob(vim.env.HOME .. "/.nvm/versions/node/*/bin", true, true)
-    table.sort(bins, function(a, b)
-        local maj_a, min_a = a:match("v(%d+)%.(%d+)")
-        local maj_b, min_b = b:match("v(%d+)%.(%d+)")
-        if maj_a ~= maj_b then return tonumber(maj_a) < tonumber(maj_b) end
-        return tonumber(min_a) < tonumber(min_b)
-    end)
-    if #bins > 0 then
-        vim.env.PATH = bins[#bins] .. ":" .. vim.env.PATH
-    end
-end
+-- Force a full repaint (the <C-l> effect) on EVERY window scroll: screen
+-- pixels have been observed lagging provably-correct internal state (blame
+-- pane rows), and repainting per scroll event guarantees paint == state.
+-- Deliberately un-debounced by choice; if flicker or CPU ever becomes
+-- noticeable during held-key scrolling, reintroduce a debounce here.
+-- Measured cost in a live session: ~0.9ms per repaint.
+vim.api.nvim_create_autocmd("WinScrolled", {
+    group = vim.api.nvim_create_augroup("ScrollRepaint", { clear = true }),
+    callback = function()
+        vim.cmd("redraw!")
+    end,
+})
 
--- rustup's toolchain proxies aren't on the default PATH (brew keeps them in
--- its own prefix); rust-analyzer needs cargo/rustc visible to load workspaces
-if vim.fn.executable("cargo") == 0 then
-    for _, dir in ipairs({ vim.env.HOME .. "/.cargo/bin", "/opt/homebrew/opt/rustup/bin" }) do
-        if vim.fn.isdirectory(dir) == 1 then
-            vim.env.PATH = vim.env.PATH .. ":" .. dir
-            break
-        end
-    end
-end
+-- Helmfile/Go templates: *.yaml.gotmpl gets the "helm" filetype (yaml+gotmpl
+-- treesitter grammar + helm-ls); other *.gotmpl fall back to plain gotmpl.
+-- Neovim has no built-in detection for either.
+-- NOTE: vim.filetype.add patterns are implicitly anchored (^...$) on nvim
+-- 0.11+, so a leading .* is required to match the path prefix.
+vim.filetype.add({
+    pattern = {
+        [".*%.ya?ml%.gotmpl"] = { "helm", { priority = 10 } },
+        [".*%.gotmpl"] = "gotmpl",
+    },
+})
 
-vim.api.nvim_set_hl(0, "LineNr", { fg = "#737373" })
+-- PATH bootstrapping for node (nvm lazy-load) and cargo/rustc (rustup) so
+-- Mason's node-based servers and rust-analyzer can be spawned — see env.lua.
+require("tajbanana.env").setup()
 
 -- Set cursor blink rate (in milliseconds)
 vim.cmd([[set guicursor+=a:blinkon500]])
@@ -82,66 +82,30 @@ vim.opt.ignorecase = true
 vim.keymap.set("n", "<C-d>", "<C-d>zz", { noremap = true, silent = true, desc = "Half page down (centered)" })
 vim.keymap.set("n", "<C-u>", "<C-u>zz", { noremap = true, silent = true, desc = "Half page up (centered)" })
 
-local term_buf = nil
-local term_win = nil
-
-function ToggleTerminal()
-  if term_win and vim.api.nvim_win_is_valid(term_win) then
-    vim.api.nvim_win_hide(term_win)
-    term_win = nil
-  else
-    if term_buf and vim.api.nvim_buf_is_valid(term_buf) then
-      vim.cmd("botright sbuf " .. term_buf)
-    else
-      vim.cmd("botright split | terminal")
-      term_buf = vim.api.nvim_get_current_buf()
-    end
-    term_win = vim.api.nvim_get_current_win()
-    vim.cmd("startinsert")
-  end
-end
-
--- GitLab-only shortcuts (<leader>gm open MR, <leader>gl open line in browser)
--- live in their own module since they assume a GitLab remote — see gitlab.lua.
+-- Feature modules extracted from this file (see each for detail): the F2
+-- terminal toggle, treesitter incremental selection (<M-Up>/<M-Down>), and the
+-- GitLab-only shortcuts (isolated because they assume a GitLab remote).
+require("tajbanana.terminal").setup()
+require("tajbanana.incremental_selection").setup()
 require("tajbanana.gitlab").setup()
 
--- Map F2 in both Normal and Terminal modes to the same function
-vim.keymap.set('n', '<F2>', ToggleTerminal, { silent = true, desc = "Toggle terminal" })
-vim.keymap.set('t', '<F2>', [[<C-\><C-n>:lua ToggleTerminal()<CR>]], { silent = true, desc = "Toggle terminal" })
-
--- Incremental selection using native treesitter (like IntelliJ Option+Up/Down)
-local ts_node_stack = {}
-
-local function select_node(node)
-    local sr, sc, er, ec = node:range()
-    vim.api.nvim_buf_set_mark(0, "<", sr + 1, sc, {})
-    vim.api.nvim_buf_set_mark(0, ">", er + 1, math.max(0, ec - 1), {})
-    vim.cmd("normal! gv")
-end
-
-vim.keymap.set("n", "<M-Up>", function()
-    local node = vim.treesitter.get_node()
-    if node then
-        ts_node_stack = { node }
-        select_node(node)
+-- Esc in normal mode clears search highlighting and closes any floating
+-- windows (diagnostic floats, hover docs, previews) — normal-mode Esc is
+-- otherwise a no-op, so nothing is lost. Fidget's LSP-progress popup is
+-- excluded: it re-renders itself immediately, so closing it just flickers.
+vim.keymap.set("n", "<Esc>", function()
+    vim.cmd("nohlsearch")
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        if vim.api.nvim_win_get_config(win).relative ~= "" then
+            local ft = vim.bo[vim.api.nvim_win_get_buf(win)].filetype
+            if ft ~= "fidget" then
+                pcall(vim.api.nvim_win_close, win, false)
+            end
+        end
     end
-end, { desc = "Start incremental selection" })
+end, { desc = "Clear search highlight, close floats" })
 
--- Normal mode has nothing to shrink yet, so <M-Up> is the sole entry point;
--- <M-Down> shrinks only once a selection exists (visual-mode map below).
-
-vim.keymap.set("x", "<M-Up>", function()
-    local current = ts_node_stack[#ts_node_stack]
-    local node = current and current:parent() or vim.treesitter.get_node()
-    if node then
-        table.insert(ts_node_stack, node)
-        select_node(node)
-    end
-end, { desc = "Expand selection" })
-
-vim.keymap.set("x", "<M-Down>", function()
-    if #ts_node_stack > 1 then
-        table.remove(ts_node_stack)
-        select_node(ts_node_stack[#ts_node_stack])
-    end
-end, { desc = "Shrink selection" })
+-- Cycle open files like IntelliJ tabs (buffers ARE the open-file list; these
+-- replaced harpoon, which was only ever used for cycling, not pinned jumps)
+vim.keymap.set("n", "<leader>]", "<cmd>bnext<cr>", { desc = "Next buffer" })
+vim.keymap.set("n", "<leader>[", "<cmd>bprevious<cr>", { desc = "Previous buffer" })
