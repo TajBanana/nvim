@@ -10,15 +10,16 @@ Requires **Neovim v0.11+** (uses the `vim.lsp.config`/`vim.lsp.enable` native LS
 
 Install these before first launch — most failures without them are silent or cryptic:
 
-| Tool                        | Needed for                                                         |
-|-----------------------------|--------------------------------------------------------------------|
-| Neovim **v0.11+**           | The whole config (native LSP API)                                  |
-| A **Nerd Font**             | File-tree / statusline icons (garbled boxes without one)           |
-| **ripgrep**                 | `Space fw` live grep (silently finds nothing without it)           |
-| **make** + a C compiler     | telescope-fzf-native builds on first `:Lazy` install               |
-| **node** (or nvm)           | All node-based LSPs and prettier (die with exit 127 without it)    |
-| **tree-sitter** CLI         | Treesitter parser installs (`brew install tree-sitter-cli`)        |
-| **lazygit**                 | `Space lg`                                                         |
+| Tool                        | Needed for                                                            |
+|-----------------------------|-----------------------------------------------------------------------|
+| Neovim **v0.11+**           | The whole config (native LSP API)                                     |
+| A **Nerd Font**             | File-tree / statusline icons (garbled boxes without one)              |
+| **ripgrep**                 | `Space fw` live grep (silently finds nothing without it)              |
+| **make** + a C compiler     | telescope-fzf-native builds on first `:Lazy` install                  |
+| **node** (or nvm)           | All node-based LSPs and prettier (die with exit 127 without it)       |
+| **tree-sitter** CLI         | Treesitter parser installs (`brew install tree-sitter-cli`)           |
+| **lazygit**                 | `Space lg`                                                            |
+| **ImageMagick**             | Inline image viewing conversions (`brew install imagemagick`)         |
 
 Per-language, only if you use them: a **JDK** (Java's jdtls and your Gradle builds; Kotlin's kotlin-lsp bundles its own runtime and needs no separate JDK), **go**, **rustup/cargo**, **python3 + ruff** (`Space xr` on Python repos), and **glab** (optional, better `Space gm` — see the GitLab section).
 
@@ -51,7 +52,7 @@ No manual sync step is needed. Give the LSP servers a moment on first open of a 
 
 **The leader key is `Space`.** Almost every custom shortcut starts with it.
 
-**Discover shortcuts as you go:** press `Space` and pause — [which-key](https://github.com/folke/which-key.nvim) pops up a menu of what's available next, grouped by category (Find, Git/Goto, Harpoon, Diagnostics, Refactor, …). You never have to memorize the tables below; they're just a reference.
+**Discover shortcuts as you go:** press `Space` and pause — [which-key](https://github.com/folke/which-key.nvim) pops up a menu of what's available next, grouped by category (Find, Git/Goto, Diagnostics, Refactor, …). You never have to memorize the tables below; they're just a reference.
 
 **On startup** the file tree (nvim-tree) opens on the left. Toggle it with `Alt-1`. Jump into a file with Telescope (`Space ff`), then start navigating code with the LSP shortcuts below.
 
@@ -62,85 +63,87 @@ A typical loop: `Space ff` to open a file → `Space gd` to jump to a definition
 Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 
 ### Files, search & navigation
-| Key                         | Action                                                             |
-|-----------------------------|--------------------------------------------------------------------|
-| `Space ff`                  | Find files (Telescope)                                             |
-| `Space fw`                  | Live grep — search text across the project                         |
-| `Ctrl-p`                    | Find git-tracked files                                             |
-| `Alt-1`                     | Toggle the file tree                                               |
-| `Ctrl-d` / `Ctrl-u`         | Half-page down / up, cursor centered                               |
+| Key                         | Action                                                                |
+|-----------------------------|-----------------------------------------------------------------------|
+| `Space ff`                  | Find files (Telescope)                                                |
+| `Space fw`                  | Live grep — search text across the project                            |
+| `Ctrl-p`                    | Find git-tracked files                                                |
+| `Alt-1`                     | Toggle the file tree                                                  |
+| `E` (in file tree)          | Toggle recursive expand of the directory under the cursor             |
+| `Ctrl-d` / `Ctrl-u`         | Half-page down / up, cursor centered                                  |
+| `Esc`                       | Clear search highlight and close floating windows                     |
 
 ### Code navigation (LSP)
-| Key                         | Action                                                             |
-|-----------------------------|--------------------------------------------------------------------|
-| `Space gd`                  | Definition / type / implementation / references — one picker       |
-| `Space gi`                  | Go to implementation                                               |
-| `Space gr`                  | Go to references (Telescope)                                       |
-| `K`                         | Hover docs — signature, type, doc comment                          |
-| `Ctrl-h` (i)                | Signature help while typing arguments                              |
-| `Space vws`                 | Search workspace symbols                                           |
-| `Space ti`                  | Toggle inlay hints (inline types/params)                           |
+| Key                         | Action                                                                |
+|-----------------------------|-----------------------------------------------------------------------|
+| `Space gd`                  | Definition / type / implementation / references (opens normal mode)   |
+| `Space gi`                  | Go to implementation                                                  |
+| `Space gr`                  | Go to references (Telescope)                                          |
+| `K`                         | Hover docs — signature, type, doc comment                             |
+| `Ctrl-h` (i)                | Signature help while typing arguments                                 |
+| `Space vws`                 | Search workspace symbols                                              |
+| `Space ti`                  | Toggle inlay hints (inline types/params)                              |
 
 ### Refactor & code actions
-| Key                         | Action                                                             |
-|-----------------------------|--------------------------------------------------------------------|
-| `Space rf`                  | Rename symbol (project-wide)                                       |
-| `Space ca` / `Option-Enter` | Code action (quick fix / refactor)                                 |
-| `Space gf`                  | Format buffer (on-demand, never on save)                           |
+| Key                         | Action                                                                |
+|-----------------------------|-----------------------------------------------------------------------|
+| `Space rf`                  | Rename symbol (project-wide)                                          |
+| `Space ca` / `Option-Enter` | Code action (quick fix / refactor)                                    |
+| `Space gf`                  | Format buffer (on-demand, never on save)                              |
 
 ### Diagnostics (Telescope, list left / preview right)
-| Key                         | Action                                                             |
-|-----------------------------|--------------------------------------------------------------------|
-| `Space xx`                  | Diagnostics across all analyzed buffers (workspace)                |
-| `Space xb`                  | Diagnostics in the current buffer only                             |
-| `Space xr`                  | Repo-wide lint — runs the project's linter over every file         |
-| `Space vd`                  | Show the diagnostic under the cursor in a float                    |
-| `]e` / `[e`                 | Next / previous diagnostic                                         |
+| Key                         | Action                                                                |
+|-----------------------------|-----------------------------------------------------------------------|
+| `Space xx`                  | Diagnostics across all analyzed buffers (workspace)                   |
+| `Space xb`                  | Diagnostics in the current buffer only                                |
+| `Space xr`                  | Repo-wide lint — runs the project's linter over every file            |
+| `Space vd`                  | Show the diagnostic under the cursor in a float                       |
+| `]e` / `[e`                 | Next / previous diagnostic, message shown in a float                  |
 
 ### Git
-| Key                         | Action                                                             |
-|-----------------------------|--------------------------------------------------------------------|
-| `Space lg`                  | **lazygit** — full TUI for staging, committing, branching, history |
-| `Space gs`                  | Git status (vim-fugitive, vertical split)                          |
-| `Space gb`                  | Git branches (Telescope)                                           |
-| `Space gp`                  | Preview the hunk under the cursor                                  |
-| `Space pp` / `Space oo`     | Next / previous changed hunk                                       |
-| `Space td`                  | Toggle showing deleted lines                                       |
-| `Space dv`                  | Diff the file against the index                                    |
-| `ih` (x/o)                  | Text object: select the current git hunk (e.g. `dih`, `vih`)       |
+| Key                         | Action                                                                |
+|-----------------------------|-----------------------------------------------------------------------|
+| `Space lg`                  | **lazygit** — full TUI for staging, committing, branching, history    |
+| `Space gb`                  | Toggle git blame: full-file annotate pane, IntelliJ-style             |
+| `Space gp`                  | Preview the hunk under the cursor                                     |
+| `Space pp` / `Space oo`     | Next / previous changed hunk, with a diff preview (dismiss: move/Esc) |
+| `Space gB`                  | Toggle gutter base: whole-branch (vs main) ↔ working tree (vs index)  |
+| `Space td`                  | Toggle showing deleted lines                                          |
+| `Space dv`                  | Diff the file against the index                                       |
+| `ih` (x/o)                  | Text object: select the current git hunk (e.g. `dih`, `vih`)          |
 
 ### GitLab (forge-specific — see the GitLab section below)
-| Key                         | Action                                                             |
-|-----------------------------|--------------------------------------------------------------------|
-| `Space gm`                  | Open (or create) the current branch's merge request                |
-| `Space gl` (n)              | Open the current file + line on GitLab                             |
-| `Space gl` (x)              | Open the selected line range on GitLab                             |
+| Key                         | Action                                                                |
+|-----------------------------|-----------------------------------------------------------------------|
+| `Space gm`                  | Open (or create) the current branch's merge request                   |
+| `Space gl` (n)              | Open the current file + line on GitLab                                |
+| `Space gl` (x)              | Open the selected line range on GitLab                                |
 
-### Harpoon (pin a few files, jump instantly)
-| Key                         | Action                                                             |
-|-----------------------------|--------------------------------------------------------------------|
-| `Space ha`                  | Add the current file to the list                                   |
-| `Space he`                  | Edit the list (quick menu)                                         |
-| `Space h1`–`h4`             | Jump to pinned file 1–4                                            |
-| `Space [` / `Space ]`       | Previous / next pinned file                                        |
+### Buffers (open files — the IntelliJ tab bar equivalent)
+| Key                         | Action                                                                |
+|-----------------------------|-----------------------------------------------------------------------|
+| `Space ]` / `Space [`       | Next / previous open file                                             |
+| `Space fb`                  | Pick from open files (most-recent first; opens in normal mode)        |
+| `dd` / `Alt-d` (in picker)  | Close the highlighted file (normal mode / while typing)               |
 
 ### Undo & testing
-| Key                         | Action                                                             |
-|-----------------------------|--------------------------------------------------------------------|
-| `Space uu`                  | Browse undo history in Telescope (diff preview)                    |
-| `Space tt` / `tf` / `ta`    | Test nearest / file / suite (vim-test)                             |
+| Key                         | Action                                                                |
+|-----------------------------|-----------------------------------------------------------------------|
+| `Space uu`                  | Browse undo history in Telescope (diff preview)                       |
+| `Space tt` / `tf` / `ta`    | Test nearest / file / suite (vim-test)                                |
 
 ### Selection, terminal & completion
-| Key                         | Action                                                             |
-|-----------------------------|--------------------------------------------------------------------|
-| `Alt-Up`                    | Start / expand a Treesitter-aware selection (IntelliJ-like)        |
-| `Alt-Down` (x)              | Shrink the selection                                               |
-| `F2`                        | Toggle a terminal split                                            |
-| `Tab` (i, menu open)        | Confirm completion; else jump to next snippet placeholder          |
-| `Shift-Tab` (i)             | Jump to the previous snippet placeholder                           |
-| `Enter` (i, menu open)      | Confirm the explicitly selected item                               |
-| `Ctrl-Space` (i)            | Trigger completion manually                                        |
-| `Ctrl-n` / `Ctrl-p` (i)     | Next / previous completion item                                    |
+| Key                         | Action                                                                |
+|-----------------------------|-----------------------------------------------------------------------|
+| `Alt-Up`                    | Start / expand a Treesitter-aware selection (IntelliJ-like)           |
+| `Alt-Down` (x)              | Shrink the selection                                                  |
+| `F2`                        | Toggle a terminal split                                               |
+| `Space md`                  | Toggle in-buffer markdown rendering (formatted ↔ raw)                 |
+| `Tab` (i, menu open)        | Confirm completion; else jump to next snippet placeholder             |
+| `Shift-Tab` (i)             | Jump to the previous snippet placeholder                              |
+| `Enter` (i, menu open)      | Confirm the explicitly selected item                                  |
+| `Ctrl-Space` (i)            | Trigger completion manually                                           |
+| `Ctrl-n` / `Ctrl-p` (i)     | Next / previous completion item                                       |
 
 ## Feature guides
 
@@ -152,20 +155,25 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 
 **Repo-wide diagnostics (`Space xr`).** LSP servers only diagnose files you've opened, so `Space xx` can't show problems in files you've never visited. `Space xr` runs the project's actual linter over the whole repo and loads the results into the Telescope picker. It auto-detects the tool by project marker: **Go** → `go vet`, **Rust** → `cargo check`, **Python** → `ruff`, **JS/TS** → the local `node_modules/.bin/eslint` (falls back to `tsc`). Add more in `lua/tajbanana/repo_diagnostics.lua`.
 
-**Git workflow.** For anything beyond a quick hunk preview, `Space lg` opens **lazygit** — stage/unstage with `Space`, commit with `c`, browse branches, and view diffs (range-select a span of commits with `v`, or diff two arbitrary commits with `W`). Inline, gitsigns shows changes in the sign column and `Space pp`/`oo` jump between hunks.
+**Viewing images.** Open a `.png` / `.jpeg` / `.gif` / `.webp` and [snacks.nvim](https://github.com/folke/snacks.nvim) renders it inline — this needs `enable_kitty_graphics = true` in `.wezterm.lua` (WezTerm ships with the protocol off). ImageMagick handles format conversion (see Prerequisites). `.svg` files intentionally open as their XML source instead — SVG rasterization proved unreliable on WezTerm stable, and the markup is usually what you want anyway; use the browser for visual SVG review. (snacks' *document* image preview — the float that popped up on image links inside markdown — is disabled, since WezTerm can't render it inline.)
+
+**Viewing markdown.** Open any `.md` file and [render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim) renders it in the buffer — headings get icons, `#`/`**`/backticks are concealed, code blocks get a background, and lists and tables are drawn — while staying editable (the line under your cursor and insert mode fall back to raw source). `Space md` toggles rendering off/on.
+
+**Git workflow.** For anything beyond a quick hunk preview, `Space lg` opens **lazygit** — stage/unstage with `Space`, commit with `c`, browse branches, and view diffs (range-select a span of commits with `v`, or diff two arbitrary commits with `W`). Inline, gitsigns shows changes in the sign column (add=green, change=blue, delete=red); `Space pp`/`oo` jump to the next/previous hunk and pop a diff preview of it, which clears as soon as you move the cursor or press `Esc`.
+
+**Whole-branch gutter (IntelliJ-style).** By default the sign column diffs each file against the point where your branch forked from `main` (the merge-base), not against the last commit — so every line you've changed anywhere on the branch stays marked, *even after you commit it*. This mirrors IntelliJ's per-branch change view. `Space gB` toggles the current buffer back to the plain working-tree view (diff vs the index, i.e. only your uncommitted edits) and back again. Notes: gitsigns keeps one base per buffer, so committed-on-branch and still-uncommitted lines share the same sign — the colour encodes the *type* of change, not whether it's committed. The base is pinned at file-open time, so re-open (or toggle twice) after `main` moves. Repos with no `main`/`master`, and files outside git, fall back silently to the working-tree view.
 
 ## Repo layout
 
 - `init.lua` — loads core settings, then bootstraps lazy.nvim
-- `lua/tajbanana/set.lua` — core Vim options, global keymaps, and custom functions (leader = Space)
-- `lua/tajbanana/gitlab.lua` — **GitLab-only** shortcuts (see below), isolated because they assume a GitLab remote
-- `lua/tajbanana/repo_diagnostics.lua` — the `Space xr` repo-wide linter
-- `lua/plugins/` — one lazy.nvim spec file per concern: `lsp`, `telescope`, `colorscheme`, `treesitter`, `formatting`, `editor`, `git`, `harpoon`, `ui`, `kotlin`
+- `lua/tajbanana/set.lua` — core Vim options and global keymaps (leader = Space); wires in the feature modules below
+- `lua/tajbanana/` modules — each keeps one concern out of `set.lua`: `gitlab.lua` (**GitLab-only** shortcuts, see below), `repo_diagnostics.lua` (the `Space xr` repo-wide linter), `env.lua` (node/cargo PATH fixes), `terminal.lua` (F2 terminal toggle), `incremental_selection.lua` (`M-Up`/`M-Down` node selection), `gitutil.lua` (shared git-root helper), `definition_picker.lua` (the `Space gd` picker), `inlay_tint.lua` (per-kind inlay colouring)
+- `lua/plugins/` — one lazy.nvim spec file per concern: `lsp`, `telescope`, `colorscheme`, `treesitter`, `formatting`, `editor`, `git`, `ui`, `kotlin`, `snacks`, `markdown`
 - `after/queries/` — custom Treesitter highlight queries per language
 
 ## Also in this repo
 
-**`.ideavimrc`** — IdeaVim config for IntelliJ, mirroring these keymaps. Symlink it:
+**`.ideavimrc`** — IdeaVim config for IntelliJ. It shares a few of these bindings (leader = Space) but is **not** a full mirror — several keys map to IntelliJ's own actions and some differ from the nvim setup. Symlink it:
 
 ```
 ln -s ~/.config/nvim/.ideavimrc ~/.ideavimrc
@@ -179,7 +187,7 @@ These keymaps assume the current file's git remote points at a **GitLab** instan
 
 `<leader>gm` prefers [`glab`](https://gitlab.com/gitlab-org/cli) (the official GitLab CLI) when it's installed — it looks up the MR by source branch via the API, which is robust to the local branch SHA drifting from the pushed MR head. If `glab` isn't installed it falls back to a token-free `git ls-remote` lookup (no CLI, no API token). `<leader>gl` is always token-free. To set glab up: `brew install glab` then `glab auth login --hostname <your-host> --stdin` (paste a PAT with `api` scope).
 
-Resolving a branch's MR is a network round-trip to the GitLab server (~1–2s, mostly latency — the call is async, so nvim never blocks). The first `<leader>gm` on a branch shows a brief "Looking up merge request…" while it resolves; the result is cached for the nvim session, so subsequent opens of the same branch's MR are instant. A "no MR yet" result is not cached, so a freshly-created MR is picked up on the next press.
+Resolving a branch's MR is a network round-trip to the GitLab server (~1–2s, mostly latency — the call is async, so nvim never blocks). Each `<leader>gm` press shows a brief "Looking up merge request…" while it resolves, then opens the MR (or the create page if there's none yet). It resolves fresh every time, so a just-created MR is always picked up.
 
 `<leader>gl` links to the **current branch**, so the branch must be pushed — an unpushed branch's blob URL will 404.
 
