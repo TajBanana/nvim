@@ -1,5 +1,8 @@
 # Design decisions
 
+
+
+
 The *why* behind this config — the non-obvious decisions, what drove them, how they work, and what they cost. The [readme](../readme.md) covers *how to use* the config; this covers *why it is the way it is*. Read it when a choice here looks surprising, before changing it.
 
 Each entry is **Context → Decision → How → Trade-offs**.
@@ -126,7 +129,7 @@ kotlin-lsp (v261+; this machine runs v262) **advertises** the inlayHint capabili
 
 ---
 
-## GitLab shortcuts: isolated module, token-free by default, glab-preferred with a cache
+## GitLab shortcuts: isolated module, token-free by default, glab-preferred
 
 **Context.** "Open this line / this branch's MR in the browser" is forge-specific — GitLab's URL shapes (`/-/blob/…#L`, `/-/merge_requests/…`) don't match GitHub/Bitbucket.
 
@@ -137,11 +140,11 @@ kotlin-lsp (v261+; this machine runs v262) **advertises** the inlayHint capabili
 - **URL normalization:** one `to_web_url` helper converts any remote form (scp-like, `ssh://`, `https://`) to an https web base, stripping `.git`, embedded credentials, and ssh ports — replacing a fragile gsub chain that leaked tokens and mishandled ports. The remote is resolved from the branch's upstream, not hardcoded `origin`.
 - **MR lookup, token-free fallback:** GitLab publishes MR heads as `refs/merge-requests/<iid>/head`, so matching the branch SHA against them via `git ls-remote` finds an existing MR with no `glab` and no API token.
 - **glab preferred when present:** `glab mr view --output json --jq .web_url` resolves the MR by **source branch via the API**, which is robust to the local SHA drifting from the pushed MR head (the ls-remote SHA-match's blind spot). glab is the official GitLab CLI, so this isn't a third-party gamble.
-- **Session cache:** resolving an MR is a ~2s network round-trip (measured: glab ~2.0s, ls-remote ~2.5s, glab process startup only 0.15s — the cost is network latency, not the tool). A branch's MR URL is stable once it exists, so positive hits are cached for the session; repeat opens are instant. "No MR yet" is **not** cached, so a freshly-created MR is picked up next press.
+- **No caching:** resolving an MR is a ~2s network round-trip (measured: glab ~2.0s, ls-remote ~2.5s, glab process startup only 0.15s — the cost is network latency, not the tool). Every `<leader>gm` resolves fresh rather than caching a per-session result, so the state is never stale: a freshly-created MR is picked up immediately, and a closed/re-created MR resolves correctly. The round-trip is async, so nvim never blocks on it.
 
 **Why not glab-only?** It would need a PAT (`api` scope) and lose the zero-dependency property that works out of the box. And glab has no command to open an arbitrary file+line, so `<leader>gl` is hand-rolled regardless.
 
-**Trade-offs.** The first MR open on a branch pays the network round-trip; nothing local can shrink that. The lazygit **color theme** lives in lazygit's own `config.yml` (outside this repo), themed to the same Material Darker palette — it can't live in the nvim config because lazygit renders its own TUI.
+**Trade-offs.** Every MR open pays the ~2s network round-trip (no caching); nothing local can shrink that. The lazygit **color theme** lives in lazygit's own `config.yml` (outside this repo), themed to the same Material Darker palette — it can't live in the nvim config because lazygit renders its own TUI.
 
 ---
 
@@ -189,3 +192,191 @@ kotlin-lsp (v261+; this machine runs v262) **advertises** the inlayHint capabili
 **Decision (current state).** `<leader>gf` uses `lsp_format = "fallback"`, so those languages still format — via the language server's own formatting — even without a conform formatter.
 
 **Trade-offs.** LSP formatting is less configurable than dedicated tools (gofmt/goimports, ruff/black, rustfmt, ktlint, shfmt, google-java-format). Wiring those in (conform `formatters_by_ft` + Mason) is the obvious next improvement; until then formatting works, just not through the dedicated tools.
+
+---
+
+## Blame annotate: blame.nvim per-line, plus a per-scroll repaint
+
+**Context.** The gitsigns blame pane groups consecutive lines of one commit —
+header on the first row, the message on a later row, brackets spanning — so
+reading horizontally misattributes rows even when alignment is perfect. On top
+of that, two real defects stacked: scrollbind's relative offset goes stale
+after jumps (a 10-line topline divergence was captured live), and screen
+pixels were observed lagging provably-correct internal state.
+
+**Decision.** Replace the pane with blame.nvim's window mode — every line
+shows its own commit/author/date, strict 1:1 — keep a WinScrolled topline
+re-sync scoped to it, and force a full repaint (`redraw!`) on every window
+scroll.
+
+**How.** `<leader>gb` toggles; focus stays in the editor. The repaint is
+deliberately un-debounced (measured ~0.9ms per repaint in a live session, so
+held-key scrolling costs ~3% of a core at worst); the insertion point for a
+debounce is marked in set.lua if that ever changes.
+
+**Trade-offs.** Diagnosing this took three stacked root causes; the lesson
+encoded here: verify against the live session (sockets, screenpos, git blame
+ground truth), not reconstructions.
+
+---
+
+## Buffer navigation replaces harpoon
+
+**Context.** Harpoon's value is stable pinned-slot jumps (`h1`–`h4`); actual
+usage was only cycling through open files — which the buffer list does
+natively, without curation overhead or an extra plugin.
+
+**Decision.** Remove harpoon. `<leader>]`/`<leader>[` cycle buffers (the same
+keys harpoon used, so muscle memory carries), `<leader>fb` opens a
+most-recent-first Telescope picker where `dd` (normal mode) or `Alt-d`
+(while filtering) closes the highlighted buffer.
+
+**Trade-offs.** No stable numbered jumps — the feature nobody pressed.
+
+---
+
+## Inline images: raster only, SVG opens as source
+
+**Context.** snacks.nvim renders images over the kitty graphics protocol,
+which WezTerm ships **disabled** (`enable_kitty_graphics = true` is set in
+`.wezterm.lua`; `wezterm imgcat` working proves nothing — it uses the iTerm2
+protocol). SVG rasterization stacked failures: ImageMagick's built-in MSVG
+renderer (no librsvg delegate) silently produced empty output for some files
+and can't parse modern CSS like drawio's `light-dark()`.
+
+**Decision.** Keep inline viewing for png/jpeg/gif/webp; exclude SVG so
+`.svg` opens as XML source — usually the more useful view anyway.
+
+**Trade-offs.** Visual SVG review happens in the browser. PDF would need
+ghostscript; not installed.
+
+---
+
+## Helmfile/gotmpl support
+
+**Context.** All Go templates in use are helmfile templates
+(`*.yaml.gotmpl`); Neovim detects neither gotmpl nor helm filetypes natively.
+
+**Decision.** Map `*.yaml.gotmpl` → `helm` (the combined yaml+gotmpl grammar)
+and `*.gotmpl` → `gotmpl`; auto-install both parsers; enable helm-ls.
+
+**How.** Note the 0.11+ gotcha encoded in set.lua: `vim.filetype.add`
+patterns are implicitly anchored, so they need a leading `.*` — the old
+`%.ext$` style silently never matches.
+
+**Trade-offs.** helm-ls targets charts, so on helmfiles it provides template-
+language help (hover on `.Values`, function completion) but no
+helmfile-schema intelligence.
+
+---
+
+## Backgrounds: 30% darker, desaturated toward grey
+
+**Context.** The stock onedark "deep" backgrounds carry a strong blue cast
+and were brighter than wanted.
+
+**Decision.** Override the palette keys (`bg0`–`bg3`, `bg_d`) once — every
+highlight group derives from them, so the editor, floats, Pmenu, Telescope,
+nvim-tree, and statusline all shift together, preserving the depth hierarchy.
+
+**How.** 30% darker than stock, then ~60% of the remaining blue pulled toward
+neutral (editor `#16181c`). Verified every surface resolves to the new
+palette; note that probing `Normal` from inside the auto-opened nvim-tree
+window reads the tree's winhighlight, not the global value — measure from a
+file window.
+
+---
+
+## WezTerm tabs: task-aware titles
+
+**Context.** Directory-basename titles can't distinguish "shell in repo X"
+from "claude running in repo X".
+
+**Decision.** Shell in the foreground → directory (a place); TUI in the
+foreground → `[app] dir` (a task), with the `[app]` segment bold. Titles are
+untruncated by choice.
+
+**Trade-offs.** Per-segment font size is impossible in WezTerm's tab bar —
+bold and colors are the only emphasis available.
+
+---
+
+## Git gutter: whole-branch base by default, IntelliJ-style
+
+**Context.** gitsigns diffs each file against the index, so a line loses its
+gutter marker the moment it's committed. IntelliJ instead marks every line
+changed anywhere on the current branch — a per-branch review view that survives
+committing. The user wanted that as the default.
+
+**Decision.** Default each buffer's gitsigns base to the branch fork point
+(`git merge-base HEAD main`, falling back to `master`), so committed-on-branch
+and uncommitted lines all stay marked. `<leader>gB` toggles the buffer back to
+the plain index view and back. Sign colors are set explicitly — add=green,
+change=blue (matching IntelliJ's "modified" marker), delete=red.
+
+**How.** The base can't be set in `on_attach`: gitsigns' initial index-based
+diff is still in flight and lands *after* — and overwrites — an early
+`change_base` (verified live: the base flag was set but the effective diff
+stayed at the index). So we latch on the first `User GitSignsUpdate` for the
+buffer, which fires once that initial diff settles, then apply `change_base`
+via `nvim_buf_call` (it acts on the current buffer, and during the event the
+file often isn't current). Applied once only, so a later manual toggle to the
+index view isn't clobbered. The merge-base per git-toplevel is cached.
+
+**Trade-offs.** gitsigns keeps one base per buffer, so committed-on-branch and
+still-uncommitted lines share the same sign — the color encodes the change
+*type*, not its commit state; distinguishing the two would need a second sign
+source. The base is pinned at open time, so it goes stale as `main` advances
+(re-open or double-toggle to re-pin). Reaches into a private detail (the
+`GitSignsUpdate` event + `change_base` timing) that a gitsigns rewrite could
+change; the fallback is a silent no-op to the normal index view.
+
+---
+
+## Inlay hints: re-tinting core's extmarks per kind
+
+**Context.** Neovim paints every inlay hint with the single `LspInlayHint`
+highlight group, discarding the LSP kind (Type vs Parameter). The goal was
+IntelliJ-like per-kind coloring — a type hint in the type color, a parameter
+hint in the parameter color, each faded toward the background.
+
+**Decision.** `lua/tajbanana/inlay_tint.lua` re-tints the rendered hints rather
+than replacing the renderer: it reads `vim.lsp.inlay_hint.get()`, buckets kinds
+by `(line, character)` exactly as core does, and rewrites each hint extmark's
+`virt_text` highlight to `LspInlayHintType` / `LspInlayHintParameter` (colors in
+`colorscheme.lua`).
+
+**How.** Core renders hints via a decoration provider that sets persistent
+(`ephemeral=false`) extmarks in the `nvim.lsp.inlayhint` namespace, but only on
+screen redraw. So the module re-tints on the events that trigger a re-render
+(`LspAttach`, `TextChanged`, `CursorHold`, `LspProgress`, `WinScrolled`, …),
+debounced; core's applied-version guard means a re-tint sticks until the next
+edit. This is also why it can only be verified with a screen attached — headless
+Neovim never redraws, so the extmarks never exist (which made it look broken
+when first tested headless).
+
+**Trade-offs.** It rewrites extmarks owned by core's private namespace, so a
+Neovim renderer change could break the tinting — hints then fall back to plain
+`LspInlayHint` grey, nothing worse. The LSP hint only carries a coarse kind, so
+builtin vs named types can't be told apart at this layer.
+
+---
+
+## Markdown: in-buffer rendering, browser preview declined
+
+**Context.** `.md` files (this repo's own readme/CHANGELOG/docs, plus notes)
+showed as raw text. The want was to *read* them formatted without leaving the
+editor.
+
+**Decision.** `render-markdown.nvim` (`lua/plugins/markdown.lua`) renders
+headings, lists, code blocks, tables and checkboxes **in the buffer**, on the
+markdown filetype, using the treesitter `markdown` + `markdown_inline` parsers.
+`<leader>md` toggles it. A read-only float (glow) and a browser preview
+(markdown-preview.nvim) were both declined — the point was to stay in the
+keyboard-driven editor, and the hybrid render (raw source under the cursor and
+in insert mode) keeps editing unaffected.
+
+**Trade-offs.** Needs the `markdown_inline` parser alongside `markdown`. Images
+referenced in markdown are **not** previewed inline: snacks' document-image
+integration is disabled because WezTerm lacks kitty unicode-placeholder support,
+so it fell back to a floating window that popped up on cursor-over-link.

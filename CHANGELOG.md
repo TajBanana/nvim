@@ -3,6 +3,88 @@
 Notable changes to this Neovim configuration, newest first. Dates are taken
 from git history; entries before 2026 are reconstructed from commit messages.
 
+## 2026-07-25 — Markdown rendering, inlay tinting, branch-review 003 fixes
+
+### Added
+- **In-buffer markdown rendering** (`markdown.lua`, render-markdown.nvim):
+  headings/lists/code/tables render in the buffer on the markdown filetype;
+  `<leader>md` toggles it. Added the `markdown_inline` treesitter parser.
+- **Per-kind inlay-hint tinting** (`inlay_tint.lua`): type hints wear the type
+  colour and parameter hints the parameter colour, each faded toward the
+  background. `<leader>ti` still toggles hints on/off.
+- **Untracked-file git signs**: genuinely untracked files show a distinct
+  dashed `┆` in muted sage-green (the whole-branch base is scoped to
+  fork-existing files so branch-new commits stay clean, not dashed).
+
+### Changed
+- **Parameters are orange in every language** (were white in TS/TSX/JS and
+  Kotlin); variable declarations stay white.
+- Git gutter add/change/delete colours brightened; snacks' markdown
+  document-image float disabled (WezTerm can't render it inline).
+
+### Refactored (branch-review 003)
+- `set.lua` slimmed to core settings; the terminal toggle, incremental
+  selection and PATH fixes moved to `terminal.lua`, `incremental_selection.lua`
+  and `env.lua`. The `<leader>gd` picker moved to `definition_picker.lua`
+  (`lsp.lua` 490 → 334 lines). Git-root resolution shared via `gitutil.lua`.
+  Colorscheme keyword captures table-driven.
+
+### Fixed (branch-review 003)
+- Visual-mode `<leader>gl` opened the wrong GitLab line range (stale marks).
+- `<leader>xr` reported "no issues" when the linter had crashed; nvm version
+  sort could crash the whole config load; several buffer-state leaks
+  (incremental selection, gitsigns autocmd / whole-branch flag) and unescaped
+  Telescope ignore patterns. Added `stylua.toml` so formatting doesn't rewrite
+  config Lua to tabs.
+
+## 2026-07-24 — Whole-branch git gutter, hunk-nav previews
+
+### Added
+- **Whole-branch git gutter** (`<leader>gB`): the sign column now diffs each
+  file against the branch fork point (`git merge-base HEAD main`) by default, so
+  every line changed on the branch stays marked even after committing —
+  IntelliJ's per-branch view. `<leader>gB` toggles a buffer back to the plain
+  working-tree (index) view. Applied by latching on the first `GitSignsUpdate`
+  so gitsigns' initial index diff doesn't overwrite it.
+- **Hunk-nav diff preview**: `<leader>pp`/`<leader>oo` now pop a diff preview of
+  the hunk they jump to, dismissed on cursor movement or `Esc`.
+
+### Changed
+- Git gutter sign colors set explicitly: add=green, change=blue (IntelliJ's
+  "modified" marker), delete=red.
+
+### Removed
+- **MR URL session cache** (`<leader>gm`): each press now resolves the merge
+  request fresh instead of caching a per-session result, so a just-created or
+  re-created MR is always picked up. The lookup is async, so nvim still never
+  blocks on it.
+
+## 2026-07-23 — Per-line blame, buffer navigation, images, gotmpl
+
+### Added
+- **Per-line git blame** (`<leader>gb`, blame.nvim): every line annotated with
+  its own commit/author/date, IntelliJ-style, replacing the grouped gitsigns
+  pane whose layout plus scrollbind drift kept misreading as misalignment.
+  Focus stays in the editor; topline re-sync plus a per-scroll repaint keep
+  rows honest.
+- **Buffer navigation replaces harpoon**: `<leader>]`/`<leader>[` cycle open
+  files, `<leader>fb` picks from them (most-recent first, `dd`/`Alt-d` closes
+  the highlighted buffer in the picker). Harpoon removed — the pinned-slot
+  jumps were unused.
+- **Inline raster image viewing** (snacks.nvim + WezTerm kitty graphics):
+  png/jpeg/gif/webp render in the buffer; `.svg` deliberately opens as XML
+  source after SVG rasterization proved unreliable on WezTerm stable.
+- **Helmfile/gotmpl support**: `*.yaml.gotmpl` → helm filetype with combined
+  yaml+gotmpl treesitter highlighting and helm-ls hover/completion.
+- **nvim-tree**: `E` now toggles recursive expansion of the directory under
+  the cursor (was: expand the entire tree).
+- **WezTerm**: tabs title as `[app] dir` when a TUI runs (bold app tag);
+  jar/jrt library classes decompile into the `<leader>gd` picker preview.
+
+### Changed
+- Backgrounds 30% darker and desaturated toward grey across every surface.
+- vim-fugitive removed (lazygit + gitsigns.diffthis cover it).
+
 ## 2026-07-20 — Color parity round 2, completion upgrades
 
 ### Fixed
