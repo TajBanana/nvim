@@ -29,6 +29,7 @@ return {
                     "gopls",
                     "bashls",
                     "rust_analyzer",
+                    "helm_ls",
                 },
                 -- kotlin_lsp is enabled by kotlin.nvim instead
                 automatic_enable = { exclude = { "kotlin_lsp" } },
@@ -198,108 +199,10 @@ return {
                     end
                     vim.keymap.set("n", "<leader>ti", toggle_inlay, opts("Toggle inlay hints"))
 
-                    -- One flat picker with every LSP location for the symbol,
-                    -- tagged by kind; type "def"/"impl"/"ref" to filter
-                    vim.keymap.set("n", "<leader>gd", function()
-                        local bufnr = vim.api.nvim_get_current_buf()
-                        local clients = vim.lsp.get_clients({ bufnr = bufnr, method = "textDocument/definition" })
-                        if #clients == 0 then
-                            vim.notify("No LSP client supporting definitions", vim.log.levels.WARN)
-                            return
-                        end
-                        local methods = {
-                            { kind = "def",  rank = 1, method = "textDocument/definition" },
-                            { kind = "type", rank = 2, method = "textDocument/typeDefinition" },
-                            { kind = "impl", rank = 3, method = "textDocument/implementation" },
-                            { kind = "ref",  rank = 4, method = "textDocument/references" },
-                        }
-                        -- query every capable client and merge (a tsx buffer has
-                        -- several attached; only ts_ls knows the answer)
-                        local jobs = {}
-                        for _, client in ipairs(clients) do
-                            for _, m in ipairs(methods) do
-                                if client:supports_method(m.method, bufnr) then
-                                    table.insert(jobs, { client = client, m = m })
-                                end
-                            end
-                        end
-                        local remaining, items, seen = #jobs, {}, {}
-                        local function open_picker()
-                            if #items == 0 then
-                                vim.notify("No locations found", vim.log.levels.INFO)
-                                return
-                            end
-                            table.sort(items, function(a, b)
-                                if a.rank ~= b.rank then return a.rank < b.rank end
-                                if a.filename ~= b.filename then return a.filename < b.filename end
-                                return a.lnum < b.lnum
-                            end)
-                            local pickers = require("telescope.pickers")
-                            local finders = require("telescope.finders")
-                            local conf = require("telescope.config").values
-                            local displayer = require("telescope.pickers.entry_display").create({
-                                separator = " ",
-                                items = {
-                                    { width = 6 },
-                                    { width = 35 },
-                                    { remaining = true },
-                                },
-                            })
-                            local kind_hl = { def = "GdTagDef", type = "GdTagType", impl = "GdTagImpl", ref = "GdTagRef" }
-                            pickers.new({}, {
-                                prompt_title = "Go to: def / type / impl / ref",
-                                finder = finders.new_table({
-                                    results = items,
-                                    entry_maker = function(it)
-                                        local tail = vim.fn.fnamemodify(it.filename, ":t") .. ":" .. it.lnum
-                                        return {
-                                            value = it,
-                                            ordinal = it.kind .. " " .. tail .. " " .. it.text,
-                                            display = function()
-                                                return displayer({
-                                                    { "[" .. it.kind .. "]", kind_hl[it.kind] },
-                                                    tail,
-                                                    it.text,
-                                                })
-                                            end,
-                                            filename = it.filename,
-                                            lnum = it.lnum,
-                                            col = it.col,
-                                        }
-                                    end,
-                                }),
-                                previewer = conf.qflist_previewer({}),
-                                sorter = conf.generic_sorter({}),
-                            }):find()
-                        end
-                        for _, job in ipairs(jobs) do
-                            local enc = job.client.offset_encoding
-                            local params = vim.lsp.util.make_position_params(0, enc)
-                            if job.m.method == "textDocument/references" then
-                                params.context = { includeDeclaration = false }
-                            end
-                            local ok = job.client:request(job.m.method, params, function(_, result)
-                                local locs = result or {}
-                                if not vim.islist(locs) then locs = { locs } end
-                                for _, it in ipairs(vim.lsp.util.locations_to_items(locs, enc)) do
-                                    local key = it.filename .. ":" .. it.lnum .. ":" .. it.col
-                                    if not seen[key] then
-                                        seen[key] = true
-                                        it.rank = job.m.rank
-                                        it.kind = job.m.kind
-                                        it.text = vim.trim(it.text or "")
-                                        table.insert(items, it)
-                                    end
-                                end
-                                remaining = remaining - 1
-                                if remaining == 0 then open_picker() end
-                            end, bufnr)
-                            if not ok then
-                                remaining = remaining - 1
-                                if remaining == 0 then open_picker() end
-                            end
-                        end
-                    end, opts("Go to def/type/impl/ref"))
+                    -- One flat picker with every LSP location for the symbol under the
+                    -- cursor, tagged by kind; type "def"/"type"/"impl"/"ref" to filter.
+                    -- Extracted to tajbanana/definition_picker to keep this file declarative.
+                    vim.keymap.set("n", "<leader>gd", require("tajbanana.definition_picker").open, opts("Go to def/type/impl/ref"))
                     vim.keymap.set("n", "<leader>gi", vim.lsp.buf.implementation, opts("Go to implementation"))
                     vim.keymap.set("n", "<leader>gr", function() require("telescope.builtin").lsp_references() end, opts("Go to references"))
                     vim.keymap.set("n", "K", vim.lsp.buf.hover, opts("Hover docs"))
@@ -314,8 +217,46 @@ return {
                 end,
             })
 
+            -- Re-tint inlay hints per kind (type/parameter palette colors)
+            require("tajbanana.inlay_tint").setup()
+
             -- Diagnostics
             vim.diagnostic.config({
+                -- show the full message in a float (like hover) after ]e / [e
+                -- (0.12 replaced the old `float = true` with an on_jump hook)
+                jump = {
+                    on_jump = function()
+                        -- Show the diagnostic in a float, closed by any REAL
+                        -- cursor movement. The stock close_events CursorMoved
+                        -- can't be used directly: ghost CursorMoved events
+                        -- (fired without actual movement, including by the
+                        -- jump itself) kill the float instantly. So close
+                        -- manually, comparing against the landing position.
+                        local _, win = vim.diagnostic.open_float({
+                            scope = "cursor",
+                            focus = false,
+                            close_events = {},
+                        })
+                        if not win then
+                            return
+                        end
+                        local landing = vim.api.nvim_win_get_cursor(0)
+                        local grp = vim.api.nvim_create_augroup("DiagJumpFloat", { clear = true })
+                        vim.api.nvim_create_autocmd({ "CursorMoved", "InsertEnter", "BufLeave", "WinLeave" }, {
+                            group = grp,
+                            callback = function(ev)
+                                if ev.event == "CursorMoved" then
+                                    local p = vim.api.nvim_win_get_cursor(0)
+                                    if p[1] == landing[1] and p[2] == landing[2] then
+                                        return -- ghost event: cursor didn't actually move
+                                    end
+                                end
+                                pcall(vim.api.nvim_win_close, win, false)
+                                pcall(vim.api.nvim_del_augroup_by_id, grp)
+                            end,
+                        })
+                    end,
+                },
                 virtual_text = true,
                 signs = {
                     text = {
