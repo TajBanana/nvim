@@ -44,17 +44,14 @@ local detectors = {
     { marker = "tsconfig.json",   make = js_detector },
 }
 
--- Git repo root of the current file, falling back to its directory.
+-- Git repo root of the current file, falling back to its directory when the
+-- file is not inside a git repo (so a lone project still lints).
 local function repo_root()
     local dir = vim.fn.expand("%:p:h")
     if dir == "" then
         dir = vim.fn.getcwd()
     end
-    local root = vim.trim(vim.fn.system({ "git", "-C", dir, "rev-parse", "--show-toplevel" }))
-    if vim.v.shell_error ~= 0 or root == "" then
-        return dir
-    end
-    return root
+    return require("tajbanana.gitutil").toplevel(dir) or dir
 end
 
 local function detect(root)
@@ -99,7 +96,24 @@ function M.run()
         end, vim.fn.getqflist())
         vim.fn.setqflist({}, "r", { title = "repo lint: " .. d.name, items = items })
         if #items == 0 then
-            vim.notify("repo lint: " .. d.name .. " found no issues ✓", vim.log.levels.INFO)
+            -- Zero parsed items with a non-zero exit is NOT a clean repo: the
+            -- tool crashed, hit a bad config, or produced output the errorformat
+            -- didn't match (eslint exits ≥2 on error, 1 on lint hits; go vet /
+            -- cargo / ruff exit non-zero when they have findings that should have
+            -- parsed). Report the failure instead of a false all-clear.
+            if out.code ~= 0 then
+                local detail = vim.trim((out.stderr ~= "" and out.stderr or out.stdout) or "")
+                if #detail > 300 then
+                    detail = detail:sub(1, 300) .. "…"
+                end
+                vim.notify(
+                    ("repo lint: %s exited %d with no parseable output — likely a tool/config error, not a clean repo%s")
+                        :format(d.name, out.code, detail ~= "" and ("\n" .. detail) or ""),
+                    vim.log.levels.ERROR
+                )
+            else
+                vim.notify("repo lint: " .. d.name .. " found no issues ✓", vim.log.levels.INFO)
+            end
             return
         end
         require("telescope.builtin").quickfix()

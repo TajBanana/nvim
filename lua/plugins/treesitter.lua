@@ -27,6 +27,9 @@ return {
             "bash",
             "rust",
             "markdown",
+            "markdown_inline", -- render-markdown.nvim needs both markdown + inline
+            "gotmpl",
+            "helm",
         }
 
         -- The main branch no longer starts highlighting automatically;

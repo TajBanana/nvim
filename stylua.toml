@@ -1,0 +1,12 @@
+column_width = 120
+line_endings = "Unix"
+indent_type = "Spaces"
+indent_width = 4
+quote_style = "AutoPreferDouble"
+call_parentheses = "Always"
+# The config uses single-line guards heavily (`if x then return y end`); keep
+# them so on-demand formatting doesn't explode every guard into three lines.
+collapse_simple_statement = "Always"
+# Note: stylua does not preserve manual column alignment (aligned `=` and padded
+# table columns), so <leader>gf will de-align those. Indentation stays 4-space
+# spaces (never tabs) -- the point of pinning this config.
