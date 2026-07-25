@@ -22,16 +22,13 @@
 
 local M = {}
 
--- Session cache of resolved MR URLs, keyed by "<remote>\0<branch>". Resolving a
--- branch's MR costs a ~2s round-trip to the GitLab server (glab API or
--- ls-remote); the answer is stable once the MR exists, so we cache positive hits
--- only (never the "no MR yet" case, so a freshly-created MR is picked up) and
--- reuse them to open instantly. Cleared on nvim restart.
-local mr_url_cache = {}
-
--- Run a git command in `dir`, returning trimmed stdout (check vim.v.shell_error).
+-- Run a git command in `dir` with `args` as a list; returns trimmed stdout
+-- (check vim.v.shell_error at the call site). List form needs no shell quoting
+-- and matches the vim.system({...}) style used elsewhere in the config.
 local function git_in_dir(dir, args)
-    return vim.trim(vim.fn.system("git -C " .. vim.fn.shellescape(dir) .. " " .. args))
+    local cmd = { "git", "-C", dir }
+    vim.list_extend(cmd, args)
+    return vim.trim(vim.fn.system(cmd))
 end
 
 -- Normalize any remote URL form (scp-like, ssh://, https://) to its https web
@@ -69,17 +66,17 @@ local function repo_context()
     if dir == "" then
         dir = vim.fn.getcwd()
     end
-    local branch = git_in_dir(dir, "branch --show-current")
+    local branch = git_in_dir(dir, { "branch", "--show-current" })
     if vim.v.shell_error ~= 0 or branch == "" then
         vim.notify("Not on a git branch", vim.log.levels.WARN)
         return nil
     end
     -- Prefer the branch's configured upstream remote; fall back to origin.
-    local remote_name = git_in_dir(dir, "config --get branch." .. vim.fn.shellescape(branch) .. ".remote")
+    local remote_name = git_in_dir(dir, { "config", "--get", "branch." .. branch .. ".remote" })
     if vim.v.shell_error ~= 0 or remote_name == "" then
         remote_name = "origin"
     end
-    local remote = git_in_dir(dir, "remote get-url " .. vim.fn.shellescape(remote_name))
+    local remote = git_in_dir(dir, { "remote", "get-url", remote_name })
     if vim.v.shell_error ~= 0 or remote == "" then
         vim.notify("No git remote '" .. remote_name .. "'", vim.log.levels.WARN)
         return nil
@@ -96,40 +93,38 @@ function M.open_mr()
     if not ctx then
         return
     end
-    -- Reuse a URL resolved earlier this session — instant, no network round-trip.
-    local key = ctx.remote_name .. "\0" .. ctx.branch
-    if mr_url_cache[key] then
-        vim.ui.open(mr_url_cache[key])
-        return
-    end
     local create_url = ctx.base .. "/-/merge_requests/new?merge_request%5Bsource_branch%5D=" .. encode_component(ctx.branch)
 
     if vim.fn.executable("glab") == 1 then
         vim.notify("Looking up merge request…", vim.log.levels.INFO)
-        -- Ask glab for the MR's web_url; it exits non-zero (empty) when the
-        -- branch has no open MR, in which case we open the create page.
+        -- Ask glab for the MR's web_url. A non-zero exit is ambiguous ("no MR
+        -- yet" vs an auth/network error), so on failure we defer to the
+        -- token-free ls-remote check rather than assuming "no MR" — see below.
         vim.system(
             { "glab", "mr", "view", "--output", "json", "--jq", ".web_url" },
             { cwd = ctx.dir, text = true },
             vim.schedule_wrap(function(out)
                 local url = vim.trim(out.stdout or "")
                 if out.code == 0 and url ~= "" then
-                    mr_url_cache[key] = url
                     vim.ui.open(url)
                 else
-                    vim.ui.open(create_url) -- no MR yet; don't cache the miss
+                    -- Don't treat a glab failure as "no MR" — that would silently
+                    -- open the create page for a branch that already has one. The
+                    -- ls-remote fallback distinguishes a real failure (reported)
+                    -- from a genuine no-MR (create page).
+                    M._open_mr_via_lsremote(ctx, create_url)
                 end
             end)
         )
     else
-        M._open_mr_via_lsremote(ctx, key, create_url)
+        M._open_mr_via_lsremote(ctx, create_url)
     end
 end
 
 -- Token-free fallback for when glab is not installed. GitLab publishes MR heads
 -- as refs/merge-requests/<iid>/head, so match the branch SHA against them via
 -- ls-remote — no glab or API token needed.
-function M._open_mr_via_lsremote(ctx, key, create_url)
+function M._open_mr_via_lsremote(ctx, create_url)
     vim.system(
         { "git", "ls-remote", ctx.remote_name, "refs/heads/" .. ctx.branch, "refs/merge-requests/*/head" },
         { cwd = ctx.dir, text = true },
@@ -157,11 +152,9 @@ function M._open_mr_via_lsremote(ctx, key, create_url)
                 end
             end
             if best then
-                local url = ctx.base .. "/-/merge_requests/" .. best
-                mr_url_cache[key] = url -- cache the positive hit for instant reuse
-                vim.ui.open(url)
+                vim.ui.open(ctx.base .. "/-/merge_requests/" .. best)
             else
-                vim.ui.open(create_url) -- no MR yet; don't cache the miss
+                vim.ui.open(create_url) -- no MR yet
             end
         end)
     )
@@ -179,8 +172,8 @@ function M.open_line(range)
         vim.notify("No file to open", vim.log.levels.WARN)
         return
     end
-    local root = git_in_dir(ctx.dir, "rev-parse --show-toplevel")
-    if vim.v.shell_error ~= 0 or root == "" then
+    local root = require("tajbanana.gitutil").toplevel(ctx.dir)
+    if not root then
         vim.notify("Not in a git repository", vim.log.levels.WARN)
         return
     end
@@ -200,9 +193,11 @@ function M.setup()
         M.open_line()
     end, { desc = "GitLab: open file line in browser" })
     vim.keymap.set("x", "<leader>gl", function()
-        -- '< and '> are set when the visual-mode mapping fires and leaves visual mode
-        local s = vim.fn.getpos("'<")[2]
-        local e = vim.fn.getpos("'>")[2]
+        -- The callback runs while STILL in visual mode, so '< / '> hold the
+        -- PREVIOUS selection (or line 0 on first use). Read the live selection
+        -- from the visual anchor (getpos("v")) and the cursor (getpos(".")).
+        local s = vim.fn.getpos("v")[2]
+        local e = vim.fn.getpos(".")[2]
         if s > e then
             s, e = e, s
         end
