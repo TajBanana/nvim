@@ -57,7 +57,6 @@ return {
             spec = {
                 { "<leader>f", group = "Find" },
                 { "<leader>g", group = "Git / Goto" },
-                { "<leader>h", group = "Harpoon" },
                 { "<leader>t", group = "Test / Toggle" },
                 { "<leader>v", group = "LSP view" },
                 { "<leader>x", group = "Diagnostics" },
@@ -95,6 +94,28 @@ return {
                 update_focused_file = {
                     enable = true,
                 },
+                on_attach = function(bufnr)
+                    local api = require("nvim-tree.api")
+                    api.config.mappings.default_on_attach(bufnr)
+                    -- E: toggle recursive expansion of the directory under the
+                    -- cursor only (default E expands the entire tree; W still
+                    -- collapses all). Expanded dir -> collapse; collapsed ->
+                    -- expand everything beneath it.
+                    vim.keymap.set("n", "E", function()
+                        local node = api.tree.get_node_under_cursor()
+                        if node and not node.nodes then
+                            node = node.parent -- on a file: act on its directory
+                        end
+                        if not node then
+                            return
+                        end
+                        if node.open then
+                            api.node.collapse(node)
+                        else
+                            api.tree.expand_all(node)
+                        end
+                    end, { buffer = bufnr, desc = "Toggle expand directory under cursor" })
+                end,
             })
 
             vim.api.nvim_create_autocmd("VimEnter", {

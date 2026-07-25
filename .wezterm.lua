@@ -37,29 +37,18 @@ config.keys = {
     { mods = "CMD", key = "Backspace",  action = action.SendKey({ mods = "CTRL", key = "u" }) },
 }
 
--- For example, changing the color scheme:
--- config.color_scheme = 'AdventureTime'
 config.window_frame = {
-    -- The font used in the tab bar.
-    -- Roboto Bold is the default; this font is bundled
-    -- with wezterm.
-    -- Whatever font is selected here, it will have the
-    -- main font setting appended to it to pick up any
-    -- fallback fonts you may have used there.
+    -- Tab-bar font (the main font is appended for fallback glyphs).
     font = wezterm.font { family = 'Roboto', weight = 'Bold' },
-
-    -- The size of the font in the tab bar.
-    -- Default to 10.0 on Windows but 12.0 on other systems
     font_size = 14.0,
-
-    -- The overall background color of the tab bar when
-    -- the window is focused
-    active_titlebar_bg = '#333333',
-
-    -- The overall background color of the tab bar when
-    -- the window is not focused
-    inactive_titlebar_bg = '#333333',
+    active_titlebar_bg = '#333333',   -- focused window
+    inactive_titlebar_bg = '#333333', -- unfocused window
 }
+
+-- WezTerm ships with the kitty graphics protocol OFF by default; snacks.nvim
+-- renders inline images through it, so without this flag image buffers stay
+-- blank while `wezterm imgcat` (iTerm2 protocol) still works.
+config.enable_kitty_graphics = true
 
 config.window_padding = {
     left = 2,
@@ -89,15 +78,29 @@ local function pane_dir_basename(pane)
     return path:match("([^/]+)$") -- basename
 end
 
+-- Shells mean the tab is about a *place* → show the directory. A running TUI
+-- (k9s, claude, nvim, lazygit, ...) means the tab is about a *task* → show the
+-- app with the directory as context: "[claude] nvim-config".
+local shells = { zsh = true, bash = true, sh = true, fish = true }
+
 wezterm.on("format-tab-title", function(tab)
     local pane = tab.active_pane
-    local title = pane_dir_basename(pane)
-    if not title then
-        -- fall back to the process name if cwd is unknown (e.g. remote pane)
-        local proc = pane.foreground_process_name or ""
-        title = proc:match("([^/]+)$") or "shell"
+    local dir = pane_dir_basename(pane)
+    local proc = (pane.foreground_process_name or ""):match("([^/]+)$")
+
+    local prefix = string.format(" %d: ", tab.tab_index + 1)
+    if proc and not shells[proc] then
+        -- bold [app], regular directory
+        return {
+            { Text = prefix },
+            { Attribute = { Intensity = "Bold" } },
+            { Text = "[" .. proc .. "]" },
+            { Attribute = { Intensity = "Normal" } },
+            { Text = dir and (" " .. dir .. " ") or " " },
+        }
     end
-    return string.format(" %d: %s ", tab.tab_index + 1, title)
+    -- shell (or unknown process): the directory is the identity
+    return prefix .. (dir or proc or "shell") .. " "
 end)
 
 -- and finally, return the configuration to wezterm
