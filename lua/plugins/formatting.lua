@@ -16,6 +16,7 @@ return {
             yaml = { "prettier" },
             css = { "prettier" },
             html = { "prettier" },
+            kotlin = { "ktlint" },
         },
     },
 }
