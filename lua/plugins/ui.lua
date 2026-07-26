@@ -72,7 +72,14 @@ return {
         "lukas-reineke/indent-blankline.nvim",
         main = "ibl",
         event = "BufReadPre",
-        opts = {},
+        -- Keep the highlighted current-scope guide, but drop the underline that
+        -- ibl otherwise draws on the scope's first/last line. Point the guide at
+        -- our own IblScope group (a darker muted rose, set in colorscheme.lua):
+        -- ibl manages the @ibl.* namespace itself, so a custom group is the
+        -- reliable way to recolour the scope.
+        opts = {
+            scope = { show_start = false, show_end = false, highlight = { "IblScope" } },
+        },
     },
     {
         "nvim-tree/nvim-tree.lua",
@@ -118,9 +125,16 @@ return {
                 end,
             })
 
+            -- Auto-open the tree only when browsing: nvim started on a directory
+            -- (`nvim .`) or with no file at all. Opening a single file (`nvim foo`)
+            -- leaves just the file -- no tree rooted at the containing folder.
             vim.api.nvim_create_autocmd("VimEnter", {
-                callback = function()
-                    require("nvim-tree.api").tree.open()
+                callback = function(data)
+                    local opened_dir = vim.fn.isdirectory(data.file) == 1
+                    local no_file = data.file == "" and vim.bo[data.buf].buftype == ""
+                    if opened_dir or no_file then
+                        require("nvim-tree.api").tree.open()
+                    end
                 end,
             })
         end,
