@@ -32,7 +32,7 @@ return {
         keys = {
             { "<leader>tt", "<cmd>TestNearest -strategy=neovim<cr>", silent = true, desc = "Test nearest" },
             { "<leader>tf", "<cmd>TestFile -strategy=neovim<cr>", silent = true, desc = "Test file" },
-            { "<leader>ta", "<cmd>TestSuite<cr>", silent = true, desc = "Test suite" },
+            { "<leader>ta", "<cmd>TestSuite -strategy=neovim<cr>", silent = true, desc = "Test suite" },
         },
     },
 }

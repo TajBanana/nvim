@@ -129,6 +129,12 @@ return {
             -- Line numbers a touch brighter than onedark's default blue-grey.
             ["LineNr"] = { fg = "#737373" },
 
+            -- indent-blankline current-scope guide (wired via scope.highlight in
+            -- ui.lua): a darker muted rose (the bracket rose #C9A6B8 dimmed ~30%),
+            -- so it marks scope without shouting. ibl otherwise uses Label (bright
+            -- purple). A dedicated group is used because ibl owns the @ibl.* names.
+            ["IblScope"] = { fg = "#8D7481" },
+
             -- <leader>gd picker kind tags
             ["GdTagDef"]  = { fg = "$md_yellow" },
             ["GdTagType"] = { fg = "$md_green", fmt = "italic" },
