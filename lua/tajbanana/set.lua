@@ -59,6 +59,24 @@ vim.api.nvim_create_autocmd("WinScrolled", {
     end,
 })
 
+-- Same paint==state concern for LINE-COUNT changes: deleting or pasting whole
+-- lines (dd, p/P, o/O, dap, undo) shifts every row below, so the gutter/blame
+-- pane can lag exactly like a scroll does. Character-level edits (x, r, an
+-- in-line cw) don't move rows, so gate the repaint on the buffer's line count
+-- actually changing -- tracked per-buffer, so it never fires on cursor motion
+-- or in-line edits. BufReadPost/BufNewFile seed the baseline; TextChanged and
+-- InsertLeave catch normal-mode and insert-mode (o/O, multiline paste) edits.
+vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile", "TextChanged", "InsertLeave" }, {
+    group = vim.api.nvim_create_augroup("LineCountRepaint", { clear = true }),
+    callback = function(args)
+        local n = vim.api.nvim_buf_line_count(args.buf)
+        if vim.b[args.buf].repaint_lines ~= nil and vim.b[args.buf].repaint_lines ~= n then
+            vim.cmd("redraw!")
+        end
+        vim.b[args.buf].repaint_lines = n
+    end,
+})
+
 -- Helmfile/Go templates: *.yaml.gotmpl gets the "helm" filetype (yaml+gotmpl
 -- treesitter grammar + helm-ls); other *.gotmpl fall back to plain gotmpl.
 -- Neovim has no built-in detection for either.
