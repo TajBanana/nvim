@@ -112,3 +112,11 @@ end, { desc = "Clear search highlight, close floats" })
 -- replaced harpoon, which was only ever used for cycling, not pinned jumps)
 vim.keymap.set("n", "<leader>]", "<cmd>bnext<cr>", { desc = "Next buffer" })
 vim.keymap.set("n", "<leader>[", "<cmd>bprevious<cr>", { desc = "Previous buffer" })
+
+-- Show the current line's diagnostics (the full error/warning text that inline
+-- virtual text truncates) in a float. Global on purpose: vim.diagnostic works
+-- without an LSP, so this isn't tied to LspAttach. source=true labels which
+-- tool produced each message when several are attached.
+vim.keymap.set("n", "<leader>e", function()
+    vim.diagnostic.open_float({ scope = "line", source = true })
+end, { desc = "Show line diagnostics (float)" })
