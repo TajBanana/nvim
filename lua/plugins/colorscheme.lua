@@ -174,6 +174,21 @@ return {
             highlights[cap] = purple_italic
         end
 
+        -- nvim-tree git-status coloring on NAMES (renderer.highlight_git="name"
+        -- in ui.lua): tint only git-IGNORED entries a muted red, and pin every
+        -- other status to the normal tree fg (#93a4c3) so tracked files' names
+        -- stay unchanged -- their status still shows in the icon column.
+        highlights["NvimTreeGitFileIgnoredHL"]   = { fg = "#A05252" }
+        highlights["NvimTreeGitFolderIgnoredHL"] = { fg = "#A05252" }
+        for _, g in ipairs({
+            "NvimTreeGitFileDirtyHL", "NvimTreeGitFileStagedHL", "NvimTreeGitFileNewHL",
+            "NvimTreeGitFileDeletedHL", "NvimTreeGitFileRenamedHL", "NvimTreeGitFileMergeHL",
+            "NvimTreeGitFolderDirtyHL", "NvimTreeGitFolderStagedHL", "NvimTreeGitFolderNewHL",
+            "NvimTreeGitFolderDeletedHL", "NvimTreeGitFolderRenamedHL", "NvimTreeGitFolderMergeHL",
+        }) do
+            highlights[g] = { fg = "#93a4c3" }
+        end
+
         require("onedark").setup({
             style = "deep",
             colors = {

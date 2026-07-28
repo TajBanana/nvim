@@ -104,6 +104,14 @@ return {
                 update_focused_file = {
                     enable = true,
                 },
+                renderer = {
+                    -- Colour entry NAMES by git status (default only colours the
+                    -- status icon). Used to tint git-ignored files/folders -- see
+                    -- the NvimTreeGit*IgnoredHL overrides in colorscheme.lua, which
+                    -- also pin every other status to normal so tracked files are
+                    -- visually unchanged.
+                    highlight_git = "name",
+                },
                 on_attach = function(bufnr)
                     local api = require("nvim-tree.api")
                     api.config.mappings.default_on_attach(bufnr)
