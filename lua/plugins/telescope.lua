@@ -10,7 +10,22 @@ return {
     },
     keys = {
         { "<C-p>", function() require("telescope.builtin").git_files() end, desc = "Find git files" },
-        { "<leader>ff", function() require("telescope.builtin").find_files() end, desc = "Find files" },
+        { "<leader>ff", function()
+            -- Mirror nvim-tree's gitignore filter: when the tree is showing
+            -- gitignored files (toggled with I), include them here too, so
+            -- "visible in the tree" == "searchable". Reads nvim-tree's live
+            -- filter state (true = hidden); guarded, defaults to excluding them
+            -- if the tree hasn't been opened or the internal API changes.
+            local no_ignore = false
+            local ok, core = pcall(require, "nvim-tree.core")
+            if ok then
+                local exp = core.get_explorer()
+                if exp and exp.filters and exp.filters.state then
+                    no_ignore = exp.filters.state.git_ignored == false
+                end
+            end
+            require("telescope.builtin").find_files({ hidden = true, no_ignore = no_ignore })
+        end, desc = "Find files" },
         { "<leader>fw", function() require("telescope.builtin").live_grep() end, desc = "Live grep" },
         {
             "<leader>fb",
