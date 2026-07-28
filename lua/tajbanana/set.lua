@@ -138,3 +138,9 @@ vim.keymap.set("n", "<leader>[", "<cmd>bprevious<cr>", { desc = "Previous buffer
 vim.keymap.set("n", "<leader>e", function()
     vim.diagnostic.open_float({ scope = "line", source = true })
 end, { desc = "Show line diagnostics (float)" })
+
+-- Open the current file in its default macOS app (html -> browser, pdf ->
+-- Preview, etc.). shellescape keeps paths with spaces intact.
+vim.keymap.set("n", "<leader>go", function()
+    vim.cmd("!open " .. vim.fn.shellescape(vim.fn.expand("%:p")))
+end, { desc = "Open file in default app" })
