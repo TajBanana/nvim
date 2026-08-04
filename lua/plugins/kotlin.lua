@@ -2,8 +2,8 @@ return {
     "AlexandrosAlexiou/kotlin.nvim",
     ft = { "kotlin" },
     dependencies = {
-        "williamboman/mason.nvim",
-        "williamboman/mason-lspconfig.nvim",
+        "mason-org/mason.nvim",
+        "mason-org/mason-lspconfig.nvim",
         "folke/trouble.nvim",
     },
     config = function()
