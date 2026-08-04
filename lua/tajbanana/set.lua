@@ -105,10 +105,10 @@ vim.keymap.set("n", "<C-u>", "<C-u>zz", { noremap = true, silent = true, desc = 
 
 -- Feature modules extracted from this file (see each for detail): the F2
 -- terminal toggle, treesitter incremental selection (<M-Up>/<M-Down>), and the
--- GitLab-only shortcuts (isolated because they assume a GitLab remote).
+-- GitHub-only shortcuts (isolated because they assume a GitHub remote).
 require("tajbanana.terminal").setup()
 require("tajbanana.incremental_selection").setup()
-require("tajbanana.gitlab").setup()
+require("tajbanana.github").setup()
 
 -- Esc in normal mode clears search highlighting and closes any floating
 -- windows (diagnostic floats, hover docs, previews) — normal-mode Esc is

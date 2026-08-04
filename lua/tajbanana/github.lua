@@ -1,23 +1,23 @@
--- GitLab-only shortcuts.
+-- GitHub-only shortcuts.
 --
--- IMPORTANT: these keymaps are GitLab-specific. They build GitLab web URLs
--- (`/-/merge_requests`, `/-/blob/<ref>/<path>#L<n>`) and will produce wrong
--- links on other forges — GitHub, Bitbucket, etc. use different URL shapes.
--- They are isolated in this module (rather than in set.lua) so the GitLab
--- assumption stays in one place and is easy to disable or swap per forge.
+-- IMPORTANT: these keymaps are GitHub-specific. They build GitHub web URLs
+-- (`/compare/<branch>`, `/pull/<n>`, `/blob/<ref>/<path>#L<n>`) and will produce
+-- wrong links on other forges — GitLab, Bitbucket, etc. use different URL
+-- shapes. They are isolated in this module (rather than in set.lua) so the
+-- GitHub assumption stays in one place and is easy to disable or swap per forge.
 --
--- <leader>gm prefers glab (the official GitLab CLI) when it is installed, for a
--- robust API-based MR lookup by source branch; it otherwise falls back to a
--- token-free `git ls-remote` method that needs no glab and no API token.
+-- <leader>gm prefers gh (the official GitHub CLI) when it is installed, for a
+-- robust API-based PR lookup by head branch; it otherwise falls back to a
+-- token-free `git ls-remote` method that needs no gh and no API token.
 -- <leader>gl is always token-free.
 --
 -- Keymaps registered by M.setup():
---   <leader>gm  (n)  open (or create) the current branch's merge request
---   <leader>gl  (n)  open the current file + cursor line on GitLab
---   <leader>gl  (x)  open the visually-selected line range on GitLab
+--   <leader>gm  (n)  open (or create) the current branch's pull request
+--   <leader>gl  (n)  open the current file + cursor line on GitHub
+--   <leader>gl  (x)  open the visually-selected line range on GitHub
 --
 -- Assumptions: the buffer's file is inside a git repo whose chosen remote
--- points at a GitLab instance, and (for <leader>gl) the current branch has
+-- points at a GitHub instance, and (for <leader>gl) the current branch has
 -- been pushed — an unpushed branch's blob URL will 404.
 
 local M = {}
@@ -35,7 +35,7 @@ end
 -- base, dropping the .git suffix, embedded credentials, and any ssh port.
 local function to_web_url(url)
     url = url:gsub("%.git$", "")
-    local host, path = url:match("^[%w._-]+@([^:/]+):(.+)$") -- scp-like: git@host:group/repo
+    local host, path = url:match("^[%w._-]+@([^:/]+):(.+)$") -- scp-like: git@host:owner/repo
     if host then
         return "https://" .. host .. "/" .. path
     end
@@ -51,8 +51,8 @@ local function to_web_url(url)
 end
 
 -- Percent-encode the URL-significant characters a branch name or file path may
--- carry (#, ?, %, &, =, +, whitespace) while keeping "/" raw — GitLab accepts
--- slashed branch names and paths verbatim in blob and MR URLs.
+-- carry (#, ?, %, &, =, +, whitespace) while keeping "/" raw — GitHub accepts
+-- slashed branch names and paths verbatim in blob and compare URLs.
 local function encode_component(s)
     return (s:gsub("[%%#?&=+%s]", function(c)
         return string.format("%%%02X", c:byte())
@@ -84,49 +84,51 @@ local function repo_context()
     return { dir = dir, branch = branch, remote_name = remote_name, base = to_web_url(remote) }
 end
 
--- Open the current branch's merge request (existing one if found, else the
--- create page). Prefers glab when installed (API lookup by source branch, robust
--- to the local SHA drifting from the pushed MR head); otherwise uses the
+-- Open the current branch's pull request (existing one if found, else the
+-- compare/create page). Prefers gh when installed (API lookup by head branch,
+-- robust to the local SHA drifting from the pushed PR head); otherwise uses the
 -- token-free ls-remote fallback below.
-function M.open_mr()
+function M.open_pr()
     local ctx = repo_context()
     if not ctx then
         return
     end
-    local create_url = ctx.base .. "/-/merge_requests/new?merge_request%5Bsource_branch%5D=" .. encode_component(ctx.branch)
+    -- GitHub's create-PR page is /compare/<branch>; expand=1 opens the form
+    -- directly rather than the bare comparison view.
+    local create_url = ctx.base .. "/compare/" .. encode_component(ctx.branch) .. "?expand=1"
 
-    if vim.fn.executable("glab") == 1 then
-        vim.notify("Looking up merge request…", vim.log.levels.INFO)
-        -- Ask glab for the MR's web_url. A non-zero exit is ambiguous ("no MR
-        -- yet" vs an auth/network error), so on failure we defer to the
-        -- token-free ls-remote check rather than assuming "no MR" — see below.
+    if vim.fn.executable("gh") == 1 then
+        vim.notify("Looking up pull request…", vim.log.levels.INFO)
+        -- Ask gh for the PR's url. A non-zero exit is ambiguous ("no PR yet"
+        -- vs an auth/network error), so on failure we defer to the token-free
+        -- ls-remote check rather than assuming "no PR" — see below.
         vim.system(
-            { "glab", "mr", "view", "--output", "json", "--jq", ".web_url" },
+            { "gh", "pr", "view", "--json", "url", "--jq", ".url" },
             { cwd = ctx.dir, text = true },
             vim.schedule_wrap(function(out)
                 local url = vim.trim(out.stdout or "")
                 if out.code == 0 and url ~= "" then
                     vim.ui.open(url)
                 else
-                    -- Don't treat a glab failure as "no MR" — that would silently
+                    -- Don't treat a gh failure as "no PR" — that would silently
                     -- open the create page for a branch that already has one. The
                     -- ls-remote fallback distinguishes a real failure (reported)
-                    -- from a genuine no-MR (create page).
-                    M._open_mr_via_lsremote(ctx, create_url)
+                    -- from a genuine no-PR (create page).
+                    M._open_pr_via_lsremote(ctx, create_url)
                 end
             end)
         )
     else
-        M._open_mr_via_lsremote(ctx, create_url)
+        M._open_pr_via_lsremote(ctx, create_url)
     end
 end
 
--- Token-free fallback for when glab is not installed. GitLab publishes MR heads
--- as refs/merge-requests/<iid>/head, so match the branch SHA against them via
--- ls-remote — no glab or API token needed.
-function M._open_mr_via_lsremote(ctx, create_url)
+-- Token-free fallback for when gh is not installed. GitHub publishes PR heads
+-- as refs/pull/<n>/head, so match the branch SHA against them via ls-remote —
+-- no gh or API token needed.
+function M._open_pr_via_lsremote(ctx, create_url)
     vim.system(
-        { "git", "ls-remote", ctx.remote_name, "refs/heads/" .. ctx.branch, "refs/merge-requests/*/head" },
+        { "git", "ls-remote", ctx.remote_name, "refs/heads/" .. ctx.branch, "refs/pull/*/head" },
         { cwd = ctx.dir, text = true },
         vim.schedule_wrap(function(out)
             if out.code ~= 0 then
@@ -134,33 +136,33 @@ function M._open_mr_via_lsremote(ctx, create_url)
                 return
             end
             local branch_sha, best
-            local mrs = {}
+            local prs = {}
             for line in (out.stdout or ""):gmatch("[^\n]+") do
                 local sha, ref = line:match("^(%x+)%s+(%S+)$")
                 if ref == "refs/heads/" .. ctx.branch then
                     branch_sha = sha
                 elseif ref then
-                    local iid = ref:match("^refs/merge%-requests/(%d+)/head$")
-                    if iid then
-                        mrs[#mrs + 1] = { iid = tonumber(iid), sha = sha }
+                    local num = ref:match("^refs/pull/(%d+)/head$")
+                    if num then
+                        prs[#prs + 1] = { num = tonumber(num), sha = sha }
                     end
                 end
             end
-            for _, m in ipairs(mrs) do
-                if m.sha == branch_sha and (not best or m.iid > best) then
-                    best = m.iid
+            for _, p in ipairs(prs) do
+                if p.sha == branch_sha and (not best or p.num > best) then
+                    best = p.num
                 end
             end
             if best then
-                vim.ui.open(ctx.base .. "/-/merge_requests/" .. best)
+                vim.ui.open(ctx.base .. "/pull/" .. best)
             else
-                vim.ui.open(create_url) -- no MR yet
+                vim.ui.open(create_url) -- no PR yet
             end
         end)
     )
 end
 
--- Open the current file on GitLab, anchored to a line (normal) or a line range
+-- Open the current file on GitHub, anchored to a line (normal) or a line range
 -- (visual). `range` is nil for the cursor line, or { start_line, end_line }.
 function M.open_line(range)
     local ctx = repo_context()
@@ -177,21 +179,32 @@ function M.open_line(range)
         vim.notify("Not in a git repository", vim.log.levels.WARN)
         return
     end
+    -- `rev-parse --show-toplevel` resolves symlinks but expand("%:p") does not,
+    -- so in a symlinked directory the two share no prefix and blind substring
+    -- arithmetic silently produced a truncated, wrong blob URL. Resolve both and
+    -- assert containment before slicing.
+    file = vim.fn.resolve(file)
+    root = vim.fn.resolve(root)
+    if file ~= root and not vim.startswith(file, root .. "/") then
+        vim.notify("File is outside the git repository", vim.log.levels.WARN)
+        return
+    end
     local relpath = file:sub(#root + 2) -- path relative to repo root (strip "root/")
     local frag
+    -- GitHub repeats the "L" in a range anchor (#L10-L20), unlike GitLab (#L10-20).
     if range and range[2] and range[1] ~= range[2] then
-        frag = string.format("#L%d-%d", range[1], range[2])
+        frag = string.format("#L%d-L%d", range[1], range[2])
     else
         frag = string.format("#L%d", (range and range[1]) or vim.fn.line("."))
     end
-    vim.ui.open(ctx.base .. "/-/blob/" .. encode_component(ctx.branch) .. "/" .. encode_component(relpath) .. frag)
+    vim.ui.open(ctx.base .. "/blob/" .. encode_component(ctx.branch) .. "/" .. encode_component(relpath) .. frag)
 end
 
 function M.setup()
-    vim.keymap.set("n", "<leader>gm", M.open_mr, { desc = "GitLab: open/create MR" })
+    vim.keymap.set("n", "<leader>gm", M.open_pr, { desc = "GitHub: open/create PR" })
     vim.keymap.set("n", "<leader>gl", function()
         M.open_line()
-    end, { desc = "GitLab: open file line in browser" })
+    end, { desc = "GitHub: open file line in browser" })
     vim.keymap.set("x", "<leader>gl", function()
         -- The callback runs while STILL in visual mode, so '< / '> hold the
         -- PREVIOUS selection (or line 0 on first use). Read the live selection
@@ -202,7 +215,7 @@ function M.setup()
             s, e = e, s
         end
         M.open_line({ s, e })
-    end, { desc = "GitLab: open selected lines in browser" })
+    end, { desc = "GitHub: open selected lines in browser" })
 end
 
 return M

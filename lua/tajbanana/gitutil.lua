@@ -1,5 +1,5 @@
 -- Shared git helpers. Repo-root resolution used to be reimplemented in
--- gitlab.lua, repo_diagnostics.lua and plugins/git.lua with subtly different
+-- github.lua, repo_diagnostics.lua and plugins/git.lua with subtly different
 -- fallbacks; this is the single source of truth. Callers decide how to handle
 -- a nil result (notify-and-abort, fall back to the file's dir, or stay silent),
 -- so the distinct call-site behaviour is preserved without duplicating the git

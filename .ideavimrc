@@ -17,8 +17,11 @@ nmap ]e <Action>(GotoNextError)
 nmap <leader>e <Action>(ShowErrorDescription)
 nmap <leader>rr <Action>(Run)
 nmap <leader>rt <Action>(Stop)
-nmap <leader>gl <Action>(GitLab.Open.In.Browser)
-nmap <leader>mr <Action>(GitLab.Merge.Request.Show.In.Toolwindow)
+" Mirrors nvim's <leader>gl / <leader>gm, which moved from GitLab to GitHub.
+" These IDs come from IntelliJ's bundled GitHub plugin; if a mapping does
+" nothing, confirm the ID with IdeaVim's :actionlist Github command.
+nmap <leader>gl <Action>(Github.Open.In.Browser)
+nmap <leader>gm <Action>(Github.Create.Pull.Request)
 nmap <leader>gh <Action>(Vcs.ShowTabbedFileHistory)
 nmap <leader>gb <Action>(Annotate)
 nmap <leader>mp <Action>(ManageRecentProjects)
