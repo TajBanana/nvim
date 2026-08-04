@@ -10,7 +10,11 @@
 -- still-uncommitted lines render with the SAME add/change/delete sign -- the
 -- gutter cannot colour "committed" vs "uncommitted" apart. The sign colour only
 -- encodes the change TYPE (add=green, change=blue, delete=red; see colorscheme).
-local branch_base_cache = {} -- git toplevel -> merge-base sha, or false when none
+-- git toplevel -> { head = <branch-or-sha>, sha = <merge-base sha or false> }.
+-- Keyed by repo AND the HEAD it was computed from: the fork point is a property
+-- of the current branch, so caching by repo alone made every branch after the
+-- first reuse the first branch's base for the rest of the session.
+local branch_base_cache = {}
 local whole_branch = {} -- bufnr -> true while the whole-branch base is active
 
 local function merge_base(bufnr)
@@ -23,20 +27,28 @@ local function merge_base(bufnr)
     if not top then
         return nil
     end
-    local cached = branch_base_cache[top]
-    if cached ~= nil then
-        return cached or nil
+    -- Identify the current HEAD so the cache entry is invalidated by a branch
+    -- switch. Falls back to the detached-HEAD sha when there is no branch name.
+    local head = vim.trim(vim.fn.system({ "git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD" }))
+    if vim.v.shell_error ~= 0 or head == "" then
+        return nil
     end
-    -- Prefer main, then master. merge-base HEAD <ref> is the fork point and is
-    -- stable as main advances (only a rebase/merge-in would move it).
-    for _, ref in ipairs({ "main", "master" }) do
+    local cached = branch_base_cache[top]
+    if cached and cached.head == head then
+        return cached.sha or nil
+    end
+    -- Prefer local main, then master, then their origin/ counterparts -- a
+    -- single-branch clone or a `git worktree` checkout often has no local main,
+    -- only the remote-tracking ref. merge-base HEAD <ref> is the fork point and
+    -- is stable as main advances (only a rebase/merge-in would move it).
+    for _, ref in ipairs({ "main", "master", "origin/main", "origin/master" }) do
         local sha = vim.trim(vim.fn.system({ "git", "-C", dir, "merge-base", "HEAD", ref }))
         if vim.v.shell_error == 0 and sha ~= "" then
-            branch_base_cache[top] = sha
+            branch_base_cache[top] = { head = head, sha = sha }
             return sha
         end
     end
-    branch_base_cache[top] = false
+    branch_base_cache[top] = { head = head, sha = false }
     return nil
 end
 
@@ -105,7 +117,13 @@ return {
                 au_id = vim.api.nvim_create_autocmd("User", {
                     pattern = "GitSignsUpdate",
                     callback = function(ev)
-                        if default_applied or ev.data.buffer ~= bufnr then
+                        -- gitsigns emits GitSignsUpdate from three places and only
+                        -- the per-buffer one (status.lua) carries data.buffer; the
+                        -- HEAD-watcher and setup emits pass no data at all. Guard
+                        -- before indexing, or every data-less emit (notably every
+                        -- branch switch) throws once per still-latched buffer.
+                        local updated = ev.data and ev.data.buffer
+                        if default_applied or updated ~= bufnr then
                             return
                         end
                         default_applied = true
@@ -216,7 +234,12 @@ return {
                         local ft = vim.bo[vim.api.nvim_win_get_buf(w)].filetype
                         if ft == "blame" then
                             pane = w
-                        elseif vim.wo[w].scrollbind then
+                        elseif vim.wo[w].scrollbind and not vim.wo[w].diff then
+                            -- Skip diff windows: gitsigns.diffthis also sets
+                            -- 'scrollbind', so with a diff split open alongside
+                            -- the blame pane the pane would sync to the DIFF's
+                            -- topline instead of the source window's -- exactly
+                            -- the row drift this handler exists to correct.
                             editor = w
                         end
                     end
