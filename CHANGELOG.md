@@ -3,6 +3,71 @@
 Notable changes to this Neovim configuration, newest first. Dates are taken
 from git history; entries before 2026 are reconstructed from commit messages.
 
+## 2026-08-04 — GitHub port, cross-platform WezTerm, audit fixes
+
+### Added
+- **git-delta side-by-side diffs** in all three places diffs are read:
+  `lazygit/config.yml` (new, symlinked to `~/.config/lazygit/`) points lazygit's
+  pager at delta with `--width=variable` so the split tracks the panel;
+  `git/delta.gitconfig` (new, `include`d from `~/.gitconfig`) covers terminal
+  `git diff`/`show`/`add -p`; and `lua/tajbanana/git_pickers.lua` (new) adds
+  `<leader>gc` (repo commits) and `<leader>gh` (current file's history), both
+  previewed through delta. All three are themed to the Material Darker palette.
+  The pickers drop to a unified diff below 120 columns, where a side-by-side
+  split is too narrow to read.
+- **`<leader>go`** — open the current file in the OS default app. Now genuinely
+  cross-platform: it goes through `vim.ui.open` (was a hardcoded macOS `!open`,
+  which simply errored on Linux/WSL) and translates the path with `wslpath -w`
+  under WSL, where the launcher is `explorer.exe`.
+- **`cmp-buffer`** — nvim-cmp listed a `buffer` fallback source but the plugin
+  providing it was never installed, so word-from-buffer completion silently did
+  nothing.
+
+### Changed
+- **GitLab → GitHub**: `gitlab.lua` replaced by `github.lua`; `<leader>gm` /
+  `<leader>gl` now build GitHub URLs (`/pull/<n>`, `/compare/<branch>?expand=1`,
+  `#L10-L20`) and prefer `gh` with a token-free `git ls-remote` fallback.
+  `.ideavimrc` remapped to the IntelliJ GitHub actions to match.
+- **`.wezterm.lua`** merged the macOS and Windows forks into one file branching
+  on `target_triple`, with WSL domains, per-platform keys/fonts, and kitty
+  graphics enabled on both (its absence was blanking inline images on Windows).
+- **Whole-branch gutter** now also tries `origin/main` / `origin/master`, so a
+  `--single-branch` clone or `git worktree` checkout with no local `main` gets
+  the branch view instead of falling back to the index.
+- **nvim-lspconfig loads eagerly** (`lazy = false`). On `BufReadPre` it never
+  loaded for brand-new files, so a new buffer got no LSP, no completion and none
+  of the `LspAttach` keymaps. Adding `BufNewFile` is not a fix — lazy suppresses
+  events while loading, which swallows the buffer's `FileType` event entirely.
+
+### Fixed
+- **Error on every branch switch**: the whole-branch latch indexed
+  `ev.data.buffer` unconditionally, but gitsigns emits `GitSignsUpdate` from
+  three places and only one carries `data` — so each data-less emit threw once
+  per attached buffer.
+- **Stale gutter base**: the merge-base cache was keyed by repo only and never
+  invalidated, so every branch after the first reused the first branch's fork
+  point for the rest of the session. Now keyed by repo *and* HEAD.
+- **Stray `stylua` LSP client**: `automatic_enable` turns on every installed
+  server lspconfig knows about, and lspconfig ships an `lsp/stylua.lua` wrapper —
+  so Mason having stylua for conform spawned `stylua --lsp` as a second
+  formatting provider on every Lua buffer. Added to `exclude`.
+- **Duplicate filename in the statusline**: `lualine_a` was overridden to the
+  prettified filename while `lualine_c` kept lualine's default `filename`.
+
+### Known issues
+- 31 findings remain open from the same audit — 4 High (Rust files throw and
+  render unhighlighted; Helm templates draw thousands of bogus diagnostics;
+  `<M-Up>` errors at the treesitter root). Each is reproduced and written up in
+  [`docs/reviews/audit_004_outstanding_findings.md`](docs/reviews/audit_004_outstanding_findings.md),
+  with the test harness beside it.
+
+### Docs
+- Corrected the file-tree startup claim, the Kotlin/JDK prerequisite (ktlint is
+  a JVM tool), the cargo PATH portability note, the nvm version-selection rule
+  (it honours nvm's `default` alias, not simply "newest") and its location
+  (`env.lua`, not `set.lua`), and the "Kotlin has no formatter" entry.
+  Documented `<leader>go` and `<leader>e`.
+
 ## 2026-07-25 — Markdown rendering, inlay tinting, branch-review 003 fixes
 
 ### Added

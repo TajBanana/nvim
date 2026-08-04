@@ -17,23 +17,24 @@ Requires Neovim v0.11+ (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP AP
 - `lua/plugins/` — Each file returns a lazy.nvim plugin spec table (or list of tables). Lazy auto-loads all files in this directory.
 
 **`lua/tajbanana/` modules** (standalone Lua, not plugin specs; each keeps one concern out of `set.lua`):
-- `gitlab.lua` — **GitLab-specific** shortcuts (`<leader>gm` open/create MR, `<leader>gl` open file/line in the browser). Deliberately isolated because it builds GitLab web URLs that don't work on other forges; keep forge-specific assumptions here, not in `set.lua`.
-- `env.lua` — PATH bootstrapping for node (nvm lazy-load) and cargo/rustc (rustup) when they're missing from PATH.
+- `github.lua` — **GitHub-specific** shortcuts (`<leader>gm` open/create PR, `<leader>gl` open file/line in the browser). Deliberately isolated because it builds GitHub web URLs that don't work on other forges; keep forge-specific assumptions here, not in `set.lua`.
+- `env.lua` — PATH bootstrapping for node (nvm lazy-load, honouring nvm's `default` alias) and cargo/rustc (rustup) when they're missing from PATH, plus a SDKMAN JDK override that runs even when `java` already resolves.
 - `terminal.lua` — the F2 bottom terminal-split toggle.
 - `incremental_selection.lua` — treesitter incremental selection (`<M-Up>`/`<M-Down>`); the node stack is buffer-scoped.
-- `gitutil.lua` — shared git-toplevel resolution (used by `gitlab.lua`, `repo_diagnostics.lua`, and `plugins/git.lua`).
+- `gitutil.lua` — shared git-toplevel resolution (used by `github.lua`, `repo_diagnostics.lua`, and `plugins/git.lua`).
+- `git_pickers.lua` — the `<leader>gc` / `<leader>gh` commit-history Telescope pickers, previewed through git-delta. Uses `new_termopen_previewer` because delta only runs when git's output is a tty; delta options are passed with `git -c` so the preview is independent of the user's global gitconfig.
 - `repo_diagnostics.lua` — repo-wide lint (`<leader>xr`); the tool is picked by project marker.
 - `definition_picker.lua` — the `<leader>gd` flat def/type/impl/ref Telescope picker (wired from `lsp.lua`'s `LspAttach`, not `set.lua`).
 - `inlay_tint.lua` — re-tints inlay hints per LSP kind (type vs parameter); set up from `lsp.lua`.
 
 **Plugin organization by file:**
-- `lsp.lua` — nvim-lspconfig + Mason (auto-installs LSP servers) + nvim-cmp (completion)
+- `lsp.lua` — nvim-lspconfig + Mason (auto-installs LSP servers) + nvim-cmp (completion). nvim-lspconfig is `lazy = false` on purpose — see the note in the file; lazy-loading it on `BufReadPre` skipped brand-new files, and adding `BufNewFile` breaks filetype detection. `automatic_enable` enables every *installed* server lspconfig knows, so non-servers Mason installs for other reasons (e.g. the `stylua` formatter, which lspconfig also ships an `lsp/` wrapper for) must be listed in its `exclude`.
 - `colorscheme.lua` — onedark.nvim with a custom Material Darker-inspired palette and extensive treesitter/LSP highlight overrides
 - `telescope.lua` — Fuzzy finder (file search, grep, open-buffer picker with dd-to-close)
 - `treesitter.lua` — Syntax highlighting with auto-install for parsers
 - `formatting.lua` — conform.nvim (format-on-demand, not auto-format)
 - `editor.lua` — Editing utilities (surround, comments, autoclose, trouble, vim-test)
-- `git.lua` — gitsigns (hunk nav `<leader>oo`/`pp` open a diff preview; gutter defaults to an IntelliJ-style whole-branch base = merge-base with main, toggled per-buffer with `<leader>gB`), git-blame (inline), blame.nvim (per-line annotate pane on `<leader>gb`), lazygit (fugitive removed: lazygit + gitsigns.diffthis cover it)
+- `git.lua` — gitsigns (hunk nav `<leader>oo`/`pp` open a diff preview; gutter defaults to an IntelliJ-style whole-branch base = merge-base with main/master/origin/*, cached per repo *and* per HEAD so a branch switch recomputes it, toggled per-buffer with `<leader>gB`), git-blame (inline), blame.nvim (per-line annotate pane on `<leader>gb`), lazygit (fugitive removed: lazygit + gitsigns.diffthis cover it)
 - `ui.lua` — lualine, indent-blankline, nvim-tree (file explorer; `E` toggles scoped expand)
 - `kotlin.lua` — kotlin.nvim managing JetBrains kotlin-lsp (excluded from mason-lspconfig auto-enable)
 - `snacks.lua` — snacks.nvim image module: inline raster viewing (svg opens as XML; the markdown document-image preview is disabled)
@@ -49,9 +50,17 @@ Requires Neovim v0.11+ (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP AP
 
 ## Symlinks
 
-The `.ideavimrc` should be symlinked to `~/.ideavimrc`:
+The `.ideavimrc` should be symlinked to `~/.ideavimrc`, and the lazygit config to
+`~/.config/lazygit/config.yml`:
 ```
 ln -s ~/.config/nvim/.ideavimrc ~/.ideavimrc
+ln -s ~/.config/nvim/lazygit/config.yml ~/.config/lazygit/config.yml
+```
+
+`git/delta.gitconfig` is *included* rather than symlinked, so `git config
+--global` edits and this repo never overwrite each other:
+```
+git config --global --add include.path ~/.config/nvim/git/delta.gitconfig
 ```
 
 ## Validating Changes
