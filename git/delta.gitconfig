@@ -1,0 +1,51 @@
+# git-delta configuration, themed to match this config's Material Darker palette
+# (see lua/plugins/colorscheme.lua). Included from ~/.gitconfig rather than
+# written into it, so `git config --global` edits and this file never fight:
+#
+#   git config --global include.path ~/.config/nvim/git/delta.gitconfig
+#
+# Applies to terminal git only. Inside Neovim, gitsigns' own diff (Space dv) and
+# the Telescope git pickers are separate -- the pickers call delta explicitly,
+# see lua/plugins/telescope.lua.
+
+[core]
+	pager = delta
+
+[interactive]
+	# --color-only: keep delta's colours but leave the +/- prefixes intact, which
+	# `git add -p` needs in order to parse and stage the hunks it shows.
+	diffFilter = delta --color-only
+
+[delta]
+	# The reason this exists: real side-by-side diffs.
+	side-by-side = true
+	line-numbers = true
+	# n / N jump between files in a multi-file diff.
+	navigate = true
+	dark = true
+	# Long lines wrap into the next visual row (with a ↴ marker) instead of being
+	# silently truncated at the column split.
+	wrap-max-lines = 2
+	# TwoDark is the bat theme closest to this config's onedark base.
+	syntax-theme = TwoDark
+	file-style = "#9CC2FF" bold
+	file-decoration-style = "#2c313a" ul
+	hunk-header-decoration-style = "#2c313a" box
+	hunk-header-style = file line-number syntax
+	# Backgrounds are the gutter add/delete colours (#D5F58F / #FF8A91) blended
+	# ~13% into the editor background (#16181c), with the word-level emphasis
+	# variants at ~22%. Keeps diffs legible without the neon wash of the defaults.
+	plus-style = syntax "#2f352b"
+	plus-emph-style = syntax "#404935"
+	minus-style = syntax "#34272b"
+	minus-emph-style = syntax "#493136"
+	zero-style = syntax
+	whitespace-error-style = "#FF8A91" reverse
+
+[diff]
+	# Distinguish moved lines from genuine add/delete pairs.
+	colorMoved = default
+
+[merge]
+	# zdiff3 shows the common ancestor in conflicts (git >= 2.35).
+	conflictstyle = zdiff3

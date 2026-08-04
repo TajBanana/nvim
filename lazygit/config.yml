@@ -1,0 +1,50 @@
+# lazygit config (Space lg). Symlinked to ~/.config/lazygit/config.yml.
+#
+# The point of this file is the delta pager below; the theme block just keeps
+# lazygit's chrome in the same Material Darker palette as Neovim
+# (lua/plugins/colorscheme.lua).
+
+git:
+  paging:
+    # useConfig: false means lazygit ignores core.pager from ~/.gitconfig and
+    # uses the command below verbatim. That is deliberate: the terminal pager
+    # (git/delta.gitconfig) can assume a full-width terminal, while lazygit
+    # renders into a narrow side panel and needs its own width handling.
+    useConfig: false
+    colorArg: always
+    # --paging=never: lazygit is already the pager; letting delta start another
+    # one deadlocks the diff panel.
+    # --width=variable: delta measures the actual panel each time instead of
+    # assuming terminal width, so the side-by-side split lands in the right place
+    # when you resize or zoom the panel with `+`.
+    pager: delta --dark --paging=never --side-by-side --width=variable --syntax-theme=TwoDark
+
+  # Show whole-file diffs against the branch fork point in the commit view, to
+  # match Neovim's whole-branch gutter default (lua/plugins/git.lua).
+  mainBranches:
+    - main
+    - master
+
+gui:
+  # Side-by-side needs horizontal room. `+` cycles panel zoom at runtime; this
+  # just makes the default split favour the diff panel over the file list.
+  mainPanelSplitMode: horizontal
+  sidePanelWidth: 0.25
+  showFileTree: true
+  nerdFontsVersion: "3"
+  theme:
+    activeBorderColor:
+      - "#9CC2FF"
+      - bold
+    inactiveBorderColor:
+      - "#5c6370"
+    selectedLineBgColor:
+      - "#1c1e23"
+    optionsTextColor:
+      - "#9CC2FF"
+    cherryPickedCommitBgColor:
+      - "#2f352b"
+    cherryPickedCommitFgColor:
+      - "#D5F58F"
+    unstagedChangesColor:
+      - "#FF8A91"
