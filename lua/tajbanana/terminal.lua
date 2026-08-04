@@ -4,8 +4,20 @@ local M = {}
 
 local term_buf, term_win
 
+-- The tracked window only counts as "the terminal, here and now": it must still
+-- exist, still be showing the terminal buffer, and live in the CURRENT tabpage.
+-- Without the last two checks, F2 from another tabpage hid whatever window the
+-- stale handle pointed at (closing that tabpage if it was the last window there).
+local function term_win_visible()
+    return term_win
+        and vim.api.nvim_win_is_valid(term_win)
+        and term_buf
+        and vim.api.nvim_win_get_buf(term_win) == term_buf
+        and vim.api.nvim_win_get_tabpage(term_win) == vim.api.nvim_get_current_tabpage()
+end
+
 function M.toggle()
-    if term_win and vim.api.nvim_win_is_valid(term_win) then
+    if term_win_visible() then
         vim.api.nvim_win_hide(term_win)
         term_win = nil
     else

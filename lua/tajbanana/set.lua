@@ -107,8 +107,10 @@ vim.filetype.add({
 -- Mason's node-based servers and rust-analyzer can be spawned — see env.lua.
 require("tajbanana.env").setup()
 
--- Set cursor blink rate (in milliseconds)
-vim.cmd([[set guicursor+=a:blinkon500]])
+-- Set cursor blink rate. All THREE of blinkwait/blinkon/blinkoff must be
+-- non-zero for the cursor to blink at all -- setting blinkon alone (as this line
+-- used to) leaves blinkoff at 0, which means "never blink".
+vim.opt.guicursor:append("a:blinkwait700-blinkon500-blinkoff400")
 
 vim.opt.ignorecase = true
 vim.keymap.set("n", "<C-d>", "<C-d>zz", { noremap = true, silent = true, desc = "Half page down (centered)" })
@@ -150,8 +152,30 @@ vim.keymap.set("n", "<leader>e", function()
     vim.diagnostic.open_float({ scope = "line", source = true })
 end, { desc = "Show line diagnostics (float)" })
 
--- Open the current file in its default macOS app (html -> browser, pdf ->
--- Preview, etc.). shellescape keeps paths with spaces intact.
+-- Open the current file in its OS default app (html -> browser, pdf -> viewer).
+-- vim.ui.open picks the right launcher per platform (open / xdg-open / wslview /
+-- explorer.exe), which the previous hardcoded `!open` did not -- that was macOS
+-- only and simply errored on Linux and WSL. Going through vim.ui.open also drops
+-- the `:!` shell round-trip, so cmdline-special characters (%, #, !) in the
+-- filename are no longer re-expanded by Vim before the shell sees them.
+--
+-- WSL needs one extra step: there vim.ui.open resolves to explorer.exe, a
+-- Windows binary that cannot read POSIX paths, so translate with `wslpath -w`
+-- first. Detected via uname rather than a build flag -- nvim reports linux here.
 vim.keymap.set("n", "<leader>go", function()
-    vim.cmd("!open " .. vim.fn.shellescape(vim.fn.expand("%:p")))
+    local path = vim.fn.expand("%:p")
+    if path == "" then
+        vim.notify("No file to open", vim.log.levels.WARN)
+        return
+    end
+    if vim.fn.has("wsl") == 1 then
+        local win = vim.system({ "wslpath", "-w", path }, { text = true }):wait()
+        if win.code == 0 and vim.trim(win.stdout or "") ~= "" then
+            path = vim.trim(win.stdout)
+        end
+    end
+    local ok, err = vim.ui.open(path)
+    if not ok then
+        vim.notify("Could not open file: " .. tostring(err), vim.log.levels.ERROR)
+    end
 end, { desc = "Open file in default app" })

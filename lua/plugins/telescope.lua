@@ -9,7 +9,20 @@ return {
         "debugloop/telescope-undo.nvim",
     },
     keys = {
-        { "<C-p>", function() require("telescope.builtin").git_files() end, desc = "Find git files" },
+        {
+            "<C-p>",
+            function()
+                -- git_files raises when the cwd is not a git repo, which makes
+                -- the muscle-memory <C-p> on a scratch file under /tmp fail with
+                -- a raw error. Fall back to find_files there instead.
+                if not require("tajbanana.gitutil").toplevel(vim.fn.getcwd()) then
+                    require("telescope.builtin").find_files({ hidden = true })
+                    return
+                end
+                require("telescope.builtin").git_files()
+            end,
+            desc = "Find git files",
+        },
         { "<leader>ff", function()
             -- Mirror nvim-tree's gitignore filter: when the tree is showing
             -- gitignored files (toggled with I), include them here too, so
