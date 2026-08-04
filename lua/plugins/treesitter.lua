@@ -61,6 +61,22 @@ return {
                 end
                 if #to_install > 0 then
                     vim.cmd("TSInstall " .. table.concat(to_install, " "))
+                    -- A parser installed during this session does NOT retro-start
+                    -- on the buffer that is already open -- the FileType autocmd
+                    -- above ran (and pcall-failed silently) before the parser
+                    -- existed, so that buffer stayed unhighlighted until :e or a
+                    -- restart. Re-attach every loaded buffer as parsers land.
+                    vim.api.nvim_create_autocmd("User", {
+                        pattern = "TSUpdate",
+                        group = vim.api.nvim_create_augroup("TSRestartAfterInstall", { clear = true }),
+                        callback = function()
+                            for _, b in ipairs(vim.api.nvim_list_bufs()) do
+                                if vim.api.nvim_buf_is_loaded(b) then
+                                    pcall(vim.treesitter.start, b)
+                                end
+                            end
+                        end,
+                    })
                 end
             end,
         })

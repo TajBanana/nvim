@@ -1,7 +1,8 @@
 -- <leader>gd: one flat Telescope picker with every LSP location for the symbol
 -- under the cursor -- definition / type / implementation / references -- tagged
--- by kind. Type "def"/"type"/"impl"/"ref" to filter. Extracted from lsp.lua so
--- that file stays declarative server setup.
+-- by kind. The picker opens in NORMAL mode (j/k to move, <CR> to jump); press
+-- `i` first to filter, then type "def"/"type"/"impl"/"ref". Extracted from
+-- lsp.lua so that file stays declarative server setup.
 --
 -- Two non-obvious pieces:
 --  - every capable client is queried and the results merged, de-duplicated by

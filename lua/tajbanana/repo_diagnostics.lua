@@ -82,7 +82,11 @@ function M.run()
         -- resolve against <root> regardless of nvim's cwd (the make/quickfix
         -- directory-tracking trick).
         local lines = { "Entering dir '" .. root .. "'" }
-        vim.list_extend(lines, vim.split((out.stdout or "") .. (out.stderr or ""), "\n", { trimempty = true }))
+        -- Explicit "\n" between the streams: an unterminated final stdout line
+        -- would otherwise be glued to the first stderr line, so that diagnostic
+        -- fails the errorformat match and is silently dropped. trimempty
+        -- discards the extra blank when stdout already ends in a newline.
+        vim.list_extend(lines, vim.split((out.stdout or "") .. "\n" .. (out.stderr or ""), "\n", { trimempty = true }))
         vim.fn.setqflist({}, " ", {
             title = "repo lint: " .. d.name,
             lines = lines,

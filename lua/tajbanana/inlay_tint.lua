@@ -104,7 +104,10 @@ function M.setup()
             end,
         }
     )
-    vim.api.nvim_create_autocmd("BufWipeout", {
+    -- BufDelete/BufUnload as well as BufWipeout: a buffer that is merely deleted
+    -- or unloaded never fires BufWipeout, so its idle libuv timer handle (and
+    -- table entry) leaked for the rest of the session, one per buffer visited.
+    vim.api.nvim_create_autocmd({ "BufWipeout", "BufDelete", "BufUnload" }, {
         group = grp,
         callback = function(ev)
             local t = timers[ev.buf]

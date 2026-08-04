@@ -39,6 +39,10 @@ return {
                         end,
                     },
                 },
+                -- lualine_c defaults to { "filename" }; since lualine_a above is
+                -- already the (prettified) filename, leaving c at its default
+                -- rendered the name twice per statusline. Blank it out.
+                lualine_c = {},
                 -- %S renders the pending-keystroke display here (cmdheight=0 +
                 -- showcmdloc="statusline"), so the keys you press show in this row
                 lualine_x = { "%S", "encoding", "fileformat", "filetype" },
