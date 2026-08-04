@@ -64,6 +64,16 @@ return {
         { "<leader>xb", function() require("telescope.builtin").diagnostics({ bufnr = 0 }) end, desc = "Diagnostics (buffer)" },
         { "<leader>xr", function() require("tajbanana.repo_diagnostics").run() end, desc = "Diagnostics (repo lint)" },
         { "<leader>uu", function() require("telescope").extensions.undo.undo() end, desc = "Undo history (Telescope)" },
+        {
+            "<leader>gc",
+            function() require("tajbanana.git_pickers").commits() end,
+            desc = "Git commits (delta preview)",
+        },
+        {
+            "<leader>gh",
+            function() require("tajbanana.git_pickers").file_commits() end,
+            desc = "Git history of this file (delta preview)",
+        },
     },
     config = function()
         require("telescope").setup({
