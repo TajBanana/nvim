@@ -4,7 +4,7 @@ A personal Neovim setup built on [lazy.nvim](https://github.com/folke/lazy.nvim)
 
 Requires **Neovim v0.11+** (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP API).
 
-> For the **reasoning** behind these choices — the nvm/PATH fix, the Kotlin/Java LSP quirks, the GitLab and repo-lint design, the inlay-hint support matrix — see **[docs/design-decisions.md](docs/design-decisions.md)**.
+> For the **reasoning** behind these choices — the nvm/PATH fix, the Kotlin/Java LSP quirks, the GitHub and repo-lint design, the inlay-hint support matrix — see **[docs/design-decisions.md](docs/design-decisions.md)**.
 
 ## Prerequisites
 
@@ -19,18 +19,19 @@ Install these before first launch — most failures without them are silent or c
 | **node** (or nvm)           | All node-based LSPs and prettier (die with exit 127 without it)       |
 | **tree-sitter** CLI         | Treesitter parser installs (`brew install tree-sitter-cli`)           |
 | **lazygit**                 | `Space lg`                                                            |
+| **git-delta**               | Side-by-side diffs in lazygit, `Space gc`/`gh`, and terminal git      |
 | **ImageMagick**             | Inline image viewing conversions (`brew install imagemagick`)         |
 
-Per-language, only if you use them: a **JDK** (Java's jdtls and your Gradle builds; Kotlin's kotlin-lsp bundles its own runtime and needs no separate JDK), **go**, **rustup/cargo**, **python3 + ruff** (`Space xr` on Python repos), and **glab** (optional, better `Space gm` — see the GitLab section).
+Per-language, only if you use them: a **JDK** (Java's jdtls and your Gradle builds; Kotlin's kotlin-lsp bundles its own runtime, but the **ktlint** formatter behind `Space gf` is a JVM tool, so Kotlin formatting still needs a JDK on `PATH`), **go**, **rustup/cargo**, **python3 + ruff** (`Space xr` on Python repos), and the **gh** CLI (optional, better `Space gm` — see the GitHub section).
 
 macOS quick start:
 
 ```
-brew install neovim ripgrep tree-sitter-cli lazygit glab
+brew install neovim ripgrep tree-sitter-cli lazygit gh
 brew install --cask font-jetbrains-mono-nerd-font   # matches .wezterm.lua
 ```
 
-Portability notes: the node PATH fix looks for nvm in `~/.nvm` (a system node on PATH also works); the rustup PATH fix assumes Homebrew on macOS (`/opt/homebrew/opt/rustup/bin`); the lazygit *color theme* lives in lazygit's own config outside this repo, so `Space lg` works everywhere but only matches this palette if you theme it separately.
+Portability notes: the node PATH fix looks for nvm in `~/.nvm` (a system node on PATH also works); the cargo PATH fix tries `~/.cargo/bin` first and then Homebrew's rustup prefix (`/opt/homebrew/opt/rustup/bin`), so it covers a standard rustup install on Linux/WSL as well as macOS — but it only helps if a toolchain is actually installed; the lazygit *color theme* lives in lazygit's own config outside this repo, so `Space lg` works everywhere but only matches this palette if you theme it separately.
 
 ## Setup
 
@@ -54,7 +55,7 @@ No manual sync step is needed. Give the LSP servers a moment on first open of a 
 
 **Discover shortcuts as you go:** press `Space` and pause — [which-key](https://github.com/folke/which-key.nvim) pops up a menu of what's available next, grouped by category (Find, Git/Goto, Diagnostics, Refactor, …). You never have to memorize the tables below; they're just a reference.
 
-**On startup** the file tree (nvim-tree) opens on the left. Toggle it with `Alt-1`. Jump into a file with Telescope (`Space ff`), then start navigating code with the LSP shortcuts below.
+**On startup** the file tree (nvim-tree) opens on the left when you launch nvim to *browse* — `nvim .` on a directory, or bare `nvim` with no file. Opening a single file (`nvim foo.ts`) leaves you in the file with no tree. Toggle it any time with `Alt-1`. Jump into a file with Telescope (`Space ff`), then start navigating code with the LSP shortcuts below.
 
 A typical loop: `Space ff` to open a file → `Space gd` to jump to a definition → `K` to read a signature → `Space ca` (or `Option-Enter`) for a quick fix → `Space gf` to format → `Space lg` to stage and commit in lazygit.
 
@@ -98,7 +99,10 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 | `Space xb`                  | Diagnostics in the current buffer only                                |
 | `Space xr`                  | Repo-wide lint — runs the project's linter over every file            |
 | `Space vd`                  | Show the diagnostic under the cursor in a float                       |
+| `Space e`                   | Show every diagnostic on the current line, with its source            |
 | `]e` / `[e`                 | Next / previous diagnostic, message shown in a float                  |
+
+`Space vd` and `Space e` overlap but are not the same: `Space vd` is scoped to the symbol under the *cursor* and is only bound where an LSP is attached, while `Space e` covers the whole *line*, labels which tool produced each message, and works with any diagnostic source (including `Space xr`'s repo lint) even with no language server running.
 
 ### Git
 | Key                         | Action                                                                |
@@ -107,17 +111,19 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 | `Space gb`                  | Toggle git blame: full-file annotate pane, IntelliJ-style             |
 | `Space gp`                  | Preview the hunk under the cursor                                     |
 | `Space pp` / `Space oo`     | Next / previous changed hunk, with a diff preview (dismiss: move/Esc) |
+| `Space gc`                  | Browse repo commits; preview the diff side by side (delta)            |
+| `Space gh`                  | History of the current file; preview each commit's change to it       |
 | `Space gB`                  | Toggle gutter base: whole-branch (vs main) ↔ working tree (vs index)  |
 | `Space td`                  | Toggle showing deleted lines                                          |
 | `Space dv`                  | Diff the file against the index                                       |
 | `ih` (x/o)                  | Text object: select the current git hunk (e.g. `dih`, `vih`)          |
 
-### GitLab (forge-specific — see the GitLab section below)
+### GitHub (forge-specific — see the GitHub section below)
 | Key                         | Action                                                                |
 |-----------------------------|-----------------------------------------------------------------------|
-| `Space gm`                  | Open (or create) the current branch's merge request                   |
-| `Space gl` (n)              | Open the current file + line on GitLab                                |
-| `Space gl` (x)              | Open the selected line range on GitLab                                |
+| `Space gm`                  | Open (or create) the current branch's pull request                    |
+| `Space gl` (n)              | Open the current file + line on GitHub                                |
+| `Space gl` (x)              | Open the selected line range on GitHub                                |
 
 ### Buffers (open files — the IntelliJ tab bar equivalent)
 | Key                         | Action                                                                |
@@ -138,6 +144,7 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 | `Alt-Up`                    | Start / expand a Treesitter-aware selection (IntelliJ-like)           |
 | `Alt-Down` (x)              | Shrink the selection                                                  |
 | `F2`                        | Toggle a terminal split                                               |
+| `Space go`                  | Open the current file in the OS default app (browser, PDF viewer, …)  |
 | `Space md`                  | Toggle in-buffer markdown rendering (formatted ↔ raw)                 |
 | `Tab` (i, menu open)        | Confirm completion; else jump to next snippet placeholder             |
 | `Shift-Tab` (i)             | Jump to the previous snippet placeholder                              |
@@ -161,13 +168,13 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 
 **Git workflow.** For anything beyond a quick hunk preview, `Space lg` opens **lazygit** — stage/unstage with `Space`, commit with `c`, browse branches, and view diffs (range-select a span of commits with `v`, or diff two arbitrary commits with `W`). Inline, gitsigns shows changes in the sign column (add=green, change=blue, delete=red); `Space pp`/`oo` jump to the next/previous hunk and pop a diff preview of it, which clears as soon as you move the cursor or press `Esc`.
 
-**Whole-branch gutter (IntelliJ-style).** By default the sign column diffs each file against the point where your branch forked from `main` (the merge-base), not against the last commit — so every line you've changed anywhere on the branch stays marked, *even after you commit it*. This mirrors IntelliJ's per-branch change view. `Space gB` toggles the current buffer back to the plain working-tree view (diff vs the index, i.e. only your uncommitted edits) and back again. Notes: gitsigns keeps one base per buffer, so committed-on-branch and still-uncommitted lines share the same sign — the colour encodes the *type* of change, not whether it's committed. The base is pinned at file-open time, so re-open (or toggle twice) after `main` moves. Repos with no `main`/`master`, and files outside git, fall back silently to the working-tree view.
+**Whole-branch gutter (IntelliJ-style).** By default the sign column diffs each file against the point where your branch forked from `main` (the merge-base), not against the last commit — so every line you've changed anywhere on the branch stays marked, *even after you commit it*. This mirrors IntelliJ's per-branch change view. `Space gB` toggles the current buffer back to the plain working-tree view (diff vs the index, i.e. only your uncommitted edits) and back again. Notes: gitsigns keeps one base per buffer, so committed-on-branch and still-uncommitted lines share the same sign — the colour encodes the *type* of change, not whether it's committed. The base is pinned at file-open time, so re-open (or toggle twice) after `main` moves; it is recomputed when you switch branches, so each branch is measured from its own fork point. The reference tried is local `main`, then `master`, then `origin/main`/`origin/master` — so a single-branch clone or a `git worktree` checkout with no local `main` still works. Repos with none of those (a `develop`-only trunk, say), and files outside git, fall back silently to the working-tree view; `Space gB` reports which case you're in.
 
 ## Repo layout
 
 - `init.lua` — loads core settings, then bootstraps lazy.nvim
 - `lua/tajbanana/set.lua` — core Vim options and global keymaps (leader = Space); wires in the feature modules below
-- `lua/tajbanana/` modules — each keeps one concern out of `set.lua`: `gitlab.lua` (**GitLab-only** shortcuts, see below), `repo_diagnostics.lua` (the `Space xr` repo-wide linter), `env.lua` (node/cargo PATH fixes), `terminal.lua` (F2 terminal toggle), `incremental_selection.lua` (`M-Up`/`M-Down` node selection), `gitutil.lua` (shared git-root helper), `definition_picker.lua` (the `Space gd` picker), `inlay_tint.lua` (per-kind inlay colouring)
+- `lua/tajbanana/` modules — each keeps one concern out of `set.lua`: `github.lua` (**GitHub-only** shortcuts, see below), `repo_diagnostics.lua` (the `Space xr` repo-wide linter), `env.lua` (node/cargo PATH fixes), `terminal.lua` (F2 terminal toggle), `incremental_selection.lua` (`M-Up`/`M-Down` node selection), `gitutil.lua` (shared git-root helper), `definition_picker.lua` (the `Space gd` picker), `inlay_tint.lua` (per-kind inlay colouring)
 - `lua/plugins/` — one lazy.nvim spec file per concern: `lsp`, `telescope`, `colorscheme`, `treesitter`, `formatting`, `editor`, `git`, `ui`, `kotlin`, `snacks`, `markdown`
 - `after/queries/` — custom Treesitter highlight queries per language
 
@@ -179,15 +186,25 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 ln -s ~/.config/nvim/.ideavimrc ~/.ideavimrc
 ```
 
-**`.wezterm.lua`** — WezTerm terminal config (also translates macOS `Cmd`/`Option` chords into keys nvim can see). Symlink or copy to where WezTerm looks for it (e.g. `~/.wezterm.lua`).
+**`.wezterm.lua`** — WezTerm terminal config, cross-platform. It branches on `wezterm.target_triple`, so one file covers both machines:
 
-## GitLab-only shortcuts
+- **macOS** — translates `Cmd`/`Option` chords into keys nvim can see; 16pt.
+- **Windows** — the same chords remapped to `Ctrl`/`Alt`, plus a `WSL:Debian` domain set as `default_domain` so panes open straight into WSL at `~`; 12pt.
 
-These keymaps assume the current file's git remote points at a **GitLab** instance — they build GitLab web URLs and will produce wrong links on GitHub, Bitbucket, or other forges. They live in their own module, `lua/tajbanana/gitlab.lua`, so the assumption stays in one place; delete the `require("tajbanana.gitlab").setup()` line in `set.lua` to disable them, or swap the module for a different forge.
+Copy it to where WezTerm looks: `~/.wezterm.lua` on macOS, or your **Windows** home (`C:\Users\<you>\.wezterm.lua`) — *not* the WSL home, since WezTerm runs on the Windows side.
 
-`<leader>gm` prefers [`glab`](https://gitlab.com/gitlab-org/cli) (the official GitLab CLI) when it's installed — it looks up the MR by source branch via the API, which is robust to the local branch SHA drifting from the pushed MR head. If `glab` isn't installed it falls back to a token-free `git ls-remote` lookup (no CLI, no API token). `<leader>gl` is always token-free. To set glab up: `brew install glab` then `glab auth login --hostname <your-host> --stdin` (paste a PAT with `api` scope).
+Two things that are easy to get wrong on Windows and fail silently:
 
-Resolving a branch's MR is a network round-trip to the GitLab server (~1–2s, mostly latency — the call is async, so nvim never blocks). Each `<leader>gm` press shows a brief "Looking up merge request…" while it resolves, then opens the MR (or the create page if there's none yet). It resolves fresh every time, so a just-created MR is always picked up.
+- Use a **WSL domain**, not `default_prog = { 'wsl.exe', ... }`. The latter spawns wsl.exe as an opaque process, so WezTerm can't track a pane's working directory — which is exactly what the tab-title function reads.
+- Set the domain's `default_cwd`. Without it, panes open in the Windows cwd (`/mnt/c/...`), i.e. the Windows filesystem over the 9p bridge, which is markedly slower for git than the distro's own ext4.
+
+## GitHub-only shortcuts
+
+These keymaps assume the current file's git remote points at a **GitHub** instance — they build GitHub web URLs and will produce wrong links on GitLab, Bitbucket, or other forges. They live in their own module, `lua/tajbanana/github.lua`, so the assumption stays in one place; delete the `require("tajbanana.github").setup()` line in `set.lua` to disable them, or swap the module for a different forge.
+
+`<leader>gm` prefers [`gh`](https://cli.github.com/) (the official GitHub CLI) when it's installed — it looks up the PR by head branch via the API, which is robust to the local branch SHA drifting from the pushed PR head. If `gh` isn't installed it falls back to a token-free `git ls-remote` lookup (no CLI, no API token). `<leader>gl` is always token-free. To set gh up: install it, then `gh auth login`.
+
+Resolving a branch's PR is a network round-trip to the GitHub server (~1–2s, mostly latency — the call is async, so nvim never blocks). Each `<leader>gm` press shows a brief "Looking up pull request…" while it resolves, then opens the PR (or the compare/create page if there's none yet). It resolves fresh every time, so a just-created PR is always picked up.
 
 `<leader>gl` links to the **current branch**, so the branch must be pushed — an unpushed branch's blob URL will 404.
 

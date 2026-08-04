@@ -30,14 +30,16 @@ plugin `config`/`LspAttach` code runs. Plugins lazy-load on their `keys` / `cmd`
 | `lua/plugins/*.lua` | One lazy.nvim plugin spec per concern; auto-discovered. |
 | `after/queries/<lang>/` | Custom Treesitter highlight queries, above default priority. |
 | `.wezterm.lua`, `.ideavimrc` | Terminal + IntelliJ-IdeaVim configs living in the same repo. |
-| `docs/` | This doc, design decisions, and dated review records. |
+| `lazygit/config.yml` | lazygit config (symlinked to `~/.config/lazygit/`): git-delta pager + matching theme. |
+| `git/delta.gitconfig` | git-delta settings for terminal git; `include`d from `~/.gitconfig`, not symlinked. |
+| `docs/` | This doc, design decisions, `deviations-from-main.md` (what this machine's branch changes vs `main`, and why), dated review + colour-audit records, and `superpowers/specs/` design specs. |
 
 ### `lua/tajbanana/` modules
 
 Each keeps a single concern out of `set.lua`; `set.lua` (or a plugin) calls its
 `setup()`:
 
-- `gitlab.lua` — GitLab-only shortcuts (forge-specific URLs; isolated).
+- `github.lua` — GitHub-only shortcuts (forge-specific URLs; isolated).
 - `env.lua` — node/cargo PATH bootstrapping when missing from PATH.
 - `terminal.lua` — F2 terminal-split toggle.
 - `incremental_selection.lua` — treesitter `<M-Up>`/`<M-Down>` selection.

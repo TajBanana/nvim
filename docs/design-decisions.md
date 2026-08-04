@@ -37,19 +37,19 @@ Each entry is **Context → Decision → How → Trade-offs**.
 
 **Context.** nvm is *lazy-loaded* in the user's `.zshrc`: `node`/`npm`/`npx` are defined as **shell functions** that source nvm on first call. This keeps shell startup fast — but it means node is **not on `PATH`** when a GUI/terminal launches nvim.
 
-**Decision.** In `set.lua`, if `node` isn't executable, find the newest `~/.nvm/versions/node/*/bin` and prepend it to `vim.env.PATH`.
+**Decision.** In `lua/tajbanana/env.lua` (called from `set.lua`), if `node` isn't executable, pick an `~/.nvm/versions/node/*/bin` and prepend it to `vim.env.PATH`. The version chosen is the one nvm's own `default` alias resolves to — following the alias chain (`default` → `lts/*` → `lts/hydrogen` → `v18.20.4`) up to a few hops — falling back to the *newest* installed version when the alias is unset, non-numeric (`node`, `stable`), or names a version that isn't installed.
 
 **How & why it's necessary.** Shell **functions are not inherited by child processes** — only exported env vars and real `PATH` entries cross the process boundary. When nvim spawns an LSP server (or `eslint`/`tsc` via `vim.system`), it execs the real binary or a non-interactive shell that never sourced the `.zshrc` function. So the lazy-load stub is invisible, and without the fix node-based Mason servers die with exit 127. The fix puts a **real** node directory on nvim's `PATH`, inherited by every subprocess. This is also why `<leader>xr`'s eslint/tsc and node-based formatters work.
 
-**Trade-offs.** Picks the *newest* installed node, not a project's `.nvmrc` version — virtually always fine for LSP/lint, only a problem for a project pinned to an old node. A sibling fix appends rustup's proxy dir for cargo/rust-analyzer.
+**Trade-offs.** Honours nvm's `default` alias but not a project's `.nvmrc` version — virtually always fine for LSP/lint, only a problem for a project pinned to a different node than your default. A sibling fix prepends `~/.cargo/bin` (and Homebrew's rustup prefix) for cargo/rust-analyzer, and a third overrides the system JDK with SDKMAN's default — unlike the other two, that one runs even when `java` already resolves, because on macOS `/usr/bin/java` always does.
 
 ---
 
 ## Kotlin: JetBrains kotlin-lsp via kotlin.nvim (not fwcd kotlin-language-server)
 
-**Context.** The default JDK on this machine is Corretto **25**. The long-standing `fwcd/kotlin-language-server` crashes on JDK 25.
+**Context.** The default JDK on the machine where this was decided was Corretto **25**, and the long-standing `fwcd/kotlin-language-server` crashes on JDK 25. (The current WSL machine runs SDKMAN's Temurin **21.0.12** — see `docs/deviations-from-main.md` — which is why the two documents name different JDKs. The decision stands either way: kotlin-lsp bundles its own runtime, so it is unaffected by whichever JDK is default.)
 
-**Decision.** Migrate to JetBrains' official **kotlin-lsp** (Mason package `kotlin-lsp`, binary `intellij-server`, lspconfig name `kotlin_lsp`), managed by [kotlin.nvim](https://github.com/AlexandrosAlexiou/kotlin.nvim) rather than mason-lspconfig's auto-enable (hence `automatic_enable = { exclude = { "kotlin_lsp" } }`).
+**Decision.** Migrate to JetBrains' official **kotlin-lsp** (Mason package `kotlin-lsp`, binary `intellij-server`, lspconfig name `kotlin_lsp`), managed by [kotlin.nvim](https://github.com/AlexandrosAlexiou/kotlin.nvim) rather than mason-lspconfig's auto-enable (hence its entry in `automatic_enable = { exclude = ... }`, alongside `stylua`).
 
 **How.** `lua/plugins/kotlin.lua` calls `require("kotlin").setup{...}`. The Mason binary is `intellij-server`, so `lsp.lua` overrides the cmd to `{ "intellij-server", "--stdio" }`.
 
@@ -162,22 +162,25 @@ red), and `bold` on tsx constructors dropped.
 
 ---
 
-## GitLab shortcuts: isolated module, token-free by default, glab-preferred
+## GitHub shortcuts: isolated module, token-free by default, gh-preferred
 
-**Context.** "Open this line / this branch's MR in the browser" is forge-specific — GitLab's URL shapes (`/-/blob/…#L`, `/-/merge_requests/…`) don't match GitHub/Bitbucket.
+**Context.** "Open this line / this branch's PR in the browser" is forge-specific — GitHub's URL shapes (`/blob/…#L`, `/pull/…`, `/compare/…`) don't match GitLab/Bitbucket.
 
-**Decision.** Keep all of it in one module, `lua/tajbanana/gitlab.lua`, and make the MR lookup **token-free by default, better with glab**.
+This module was originally written for GitLab (`gitlab.lua`, `/-/blob/…#L`, `/-/merge_requests/…`) and was ported to GitHub when the config moved to a personal machine with no GitLab remotes. The port was near-mechanical because both forges publish change-request heads as fetchable refs, so the token-free design below survived intact — see `docs/deviations-from-main.md` for the full rationale.
+
+**Decision.** Keep all of it in one module, `lua/tajbanana/github.lua`, and make the PR lookup **token-free by default, better with gh**.
 
 **How.**
-- **Isolation:** the module documents the GitLab assumption in one place; disabling is deleting one `require(...).setup()` line.
+- **Isolation:** the module documents the GitHub assumption in one place; disabling is deleting one `require(...).setup()` line.
 - **URL normalization:** one `to_web_url` helper converts any remote form (scp-like, `ssh://`, `https://`) to an https web base, stripping `.git`, embedded credentials, and ssh ports — replacing a fragile gsub chain that leaked tokens and mishandled ports. The remote is resolved from the branch's upstream, not hardcoded `origin`.
-- **MR lookup, token-free fallback:** GitLab publishes MR heads as `refs/merge-requests/<iid>/head`, so matching the branch SHA against them via `git ls-remote` finds an existing MR with no `glab` and no API token.
-- **glab preferred when present:** `glab mr view --output json --jq .web_url` resolves the MR by **source branch via the API**, which is robust to the local SHA drifting from the pushed MR head (the ls-remote SHA-match's blind spot). glab is the official GitLab CLI, so this isn't a third-party gamble.
-- **No caching:** resolving an MR is a ~2s network round-trip (measured: glab ~2.0s, ls-remote ~2.5s, glab process startup only 0.15s — the cost is network latency, not the tool). Every `<leader>gm` resolves fresh rather than caching a per-session result, so the state is never stale: a freshly-created MR is picked up immediately, and a closed/re-created MR resolves correctly. The round-trip is async, so nvim never blocks on it.
+- **PR lookup, token-free fallback:** GitHub publishes PR heads as `refs/pull/<n>/head`, so matching the branch SHA against them via `git ls-remote` finds an existing PR with no `gh` and no API token. (This is the direct analogue of GitLab's `refs/merge-requests/<iid>/head`, which is why the port kept the same shape.)
+- **gh preferred when present:** `gh pr view --json url --jq .url` resolves the PR by **head branch via the API**, which is robust to the local SHA drifting from the pushed PR head (the ls-remote SHA-match's blind spot). gh is the official GitHub CLI, so this isn't a third-party gamble.
+- **No caching:** resolving a PR is a network round-trip (~1–2s, mostly latency, not tool startup). Every `<leader>gm` resolves fresh rather than caching a per-session result, so the state is never stale: a freshly-created PR is picked up immediately, and a closed/re-created PR resolves correctly. The round-trip is async, so nvim never blocks on it.
+- **Range anchors differ:** GitHub repeats the `L` in a line range (`#L10-L20`) where GitLab does not (`#L10-20`). This is the one non-mechanical difference in the port and the easiest thing to get subtly wrong.
 
-**Why not glab-only?** It would need a PAT (`api` scope) and lose the zero-dependency property that works out of the box. And glab has no command to open an arbitrary file+line, so `<leader>gl` is hand-rolled regardless.
+**Why not gh-only?** It would need gh installed and authenticated, losing the zero-dependency property that works out of the box. And gh has no command to open an arbitrary file+line, so `<leader>gl` is hand-rolled regardless.
 
-**Trade-offs.** Every MR open pays the ~2s network round-trip (no caching); nothing local can shrink that. The lazygit **color theme** lives in lazygit's own `config.yml` (outside this repo), themed to the same Material Darker palette — it can't live in the nvim config because lazygit renders its own TUI.
+**Trade-offs.** Every PR open pays the network round-trip (no caching); nothing local can shrink that. The lazygit **color theme** lives in lazygit's own `config.yml` (outside this repo), themed to the same Material Darker palette — it can't live in the nvim config because lazygit renders its own TUI.
 
 ---
 
@@ -220,11 +223,11 @@ red), and `bold` on tsx constructors dropped.
 
 ## Formatters: dedicated where configured, LSP fallback everywhere else
 
-**Context.** conform.nvim maps dedicated formatters only for Lua (stylua) and the web filetypes (prettier). Go/Python/Rust/Kotlin/Java/Bash have no dedicated formatter wired up.
+**Context.** conform.nvim maps dedicated formatters for Lua (stylua), the web filetypes (prettier) and Kotlin (ktlint). Go/Python/Rust/Java/Bash have no dedicated formatter wired up.
 
 **Decision (current state).** `<leader>gf` uses `lsp_format = "fallback"`, so those languages still format — via the language server's own formatting — even without a conform formatter.
 
-**Trade-offs.** LSP formatting is less configurable than dedicated tools (gofmt/goimports, ruff/black, rustfmt, ktlint, shfmt, google-java-format). Wiring those in (conform `formatters_by_ft` + Mason) is the obvious next improvement; until then formatting works, just not through the dedicated tools.
+**Trade-offs.** LSP formatting is less configurable than dedicated tools (gofmt/goimports, ruff/black, rustfmt, shfmt, google-java-format). Wiring the rest in (conform `formatters_by_ft` + Mason) is the obvious next improvement; until then formatting works, just not through the dedicated tools. Note that ktlint is a JVM tool, so Kotlin formatting — unlike Kotlin *editing*, which kotlin-lsp serves from its own bundled runtime — needs a JDK on `PATH`.
 
 ---
 
@@ -332,6 +335,70 @@ untruncated by choice.
 **Trade-offs.** Per-segment font size is impossible in WezTerm's tab bar —
 bold and colors are the only emphasis available.
 
+**Depends on cwd tracking.** The title is derived from `pane.current_working_dir`,
+so anything that breaks WezTerm's view of a pane's cwd silently degrades this
+feature. On Windows that means the WSL session must be launched as a **domain**
+(`wsl_domains` + `default_domain`), not via `default_prog = { 'wsl.exe', ... }` —
+the latter is an opaque child process WezTerm cannot introspect. See
+[deviations-from-main.md](deviations-from-main.md).
+
+**On WSL the process name is unusable, so the shell reports it instead.** WezTerm
+runs on the Windows side, so a WSL pane's `foreground_process_name` is the
+Windows host process — `wslhost.exe` — not the Linux program. WezTerm cannot see
+into the distro's process tree. Left alone, every WSL tab renders
+`[wslhost.exe]` instead of `[claude]`.
+
+The fix is to invert the direction: the shell *inside* WSL announces what it's
+running. `.zshrc` registers zsh `preexec`/`precmd` hooks that publish the command
+line as the **`WEZTERM_PROG` user var** (OSC 1337 `SetUserVar`, base64) and the
+cwd via **OSC 7**; `pane_prog()` in `.wezterm.lua` prefers that user var and only
+falls back to `foreground_process_name` on macOS, where it is accurate.
+
+This also gives a cleaner definition of "at a prompt" than the `shells` table:
+`precmd` sets `WEZTERM_PROG` to the empty string, so an idle pane is *explicitly*
+idle rather than inferred from a hardcoded list of shell names. The `shells`
+table remains for the macOS fallback path.
+
+Note this install ships no `shell-integration/wezterm.sh`, so the two hooks are
+hand-rolled — about ten lines, and they avoid depending on a file whose path
+differs per platform and per install method.
+
+**The OS window title is a separate hook.** `format-tab-title` labels the strip
+at the top of the window — with `use_fancy_tab_bar` on (the default), that strip
+is drawn *into* the titlebar region, which is why `window_frame` styles it and
+why it can read as "the menu bar". What it does **not** set is the OS-level
+window title: the taskbar entry, Alt-Tab, and the window list. That comes from
+`format-window-title`, which by default derives from the active pane's title —
+uninformative for a WSL pane. Both hooks now share `pane_dir_basename()` and
+`pane_prog()`, so the two titles can't drift; the window title drops the per-tab
+index and appends a tab count instead, since its job is telling *windows* apart
+rather than tabs.
+
+---
+
+## WezTerm config: one cross-platform file, not a per-machine fork
+
+**Context.** This config started macOS-only. The Windows machine kept a
+hand-edited copy, and the two drifted **in both directions**: Windows gained the
+WSL boot and `Ctrl`/`Alt` key remaps, macOS gained `enable_kitty_graphics` and
+the task-aware tab titles. Each file ended up missing something the other had —
+and because a missing `enable_kitty_graphics` produces *blank image buffers with
+no error*, the loss went unnoticed.
+
+**Decision.** One file, branching on `wezterm.target_triple`, copied to both
+machines.
+
+**How.** `local is_windows = wezterm.target_triple:find("windows") ~= nil` gates
+the three things that genuinely differ: the modifier set (`Cmd`/`Opt` vs
+`Ctrl`/`Alt`, emitting identical keys either way), font sizes, and the WSL
+domain block. Everything else — fonts, colors, kitty graphics, padding, tab
+titles — is shared, so a feature added once lands on both.
+
+**Why not a symlink from the repo?** WezTerm runs on the *Windows* side and
+reads `C:\Users\<you>\.wezterm.lua`; a WSL symlink into `~/.config/nvim` isn't
+resolvable from there. The file is copied, so the repo stays the source of
+truth and the copy is the deployment step.
+
 ---
 
 ## Git gutter: whole-branch base by default, IntelliJ-style
@@ -354,7 +421,20 @@ stayed at the index). So we latch on the first `User GitSignsUpdate` for the
 buffer, which fires once that initial diff settles, then apply `change_base`
 via `nvim_buf_call` (it acts on the current buffer, and during the event the
 file often isn't current). Applied once only, so a later manual toggle to the
-index view isn't clobbered. The merge-base per git-toplevel is cached.
+index view isn't clobbered. The merge-base is cached per git-toplevel **and per
+HEAD**, so switching branches recomputes it — keying on the repo alone made every
+branch after the first silently reuse the first branch's fork point for the rest
+of the session.
+
+The reference search is local `main` → `master` → `origin/main` → `origin/master`.
+The remote-tracking fallbacks matter for a `--single-branch` clone or a
+`git worktree` checkout, neither of which necessarily has a local `main` ref.
+
+One subtlety in the latch: gitsigns emits `User GitSignsUpdate` from several
+places and only the per-buffer one carries `data.buffer` — the HEAD-watcher and
+setup emits pass no `data` at all. The handler must guard before indexing it, or
+every data-less emit (notably every branch switch) throws once per attached
+buffer.
 
 **Trade-offs.** gitsigns keeps one base per buffer, so committed-on-branch and
 still-uncommitted lines share the same sign — the color encodes the change
