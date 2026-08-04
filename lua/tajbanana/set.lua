@@ -89,6 +89,17 @@ vim.filetype.add({
     pattern = {
         [".*%.ya?ml%.gotmpl"] = { "helm", { priority = 10 } },
         [".*%.gotmpl"] = "gotmpl",
+        -- Real Helm charts don't use a .gotmpl extension -- their templates are
+        -- plain `<chart>/templates/*.yaml` containing {{ }} that is NOT valid
+        -- YAML. Without these rules nvim called them `yaml`, yamlls attached and
+        -- reported every Go-template delimiter as a syntax error (measured: 1393
+        -- diagnostics on one statefulset.yaml, 3145 on a kube-prometheus-stack
+        -- template), while helm_ls -- installed via ensure_installed for exactly
+        -- this -- could never attach. *.tpl helper files were landing on the
+        -- unrelated `mustache`/`smarty` filetype for the same reason.
+        -- Priority 10 beats nvim's built-in extension match on .yaml/.yml.
+        [".*/templates/.*%.ya?ml"] = { "helm", { priority = 10 } },
+        [".*/templates/.*%.tpl"] = { "helm", { priority = 10 } },
     },
 })
 
