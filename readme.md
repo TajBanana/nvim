@@ -205,6 +205,38 @@ The colorscheme is onedark.nvim with a Material Darker-inspired palette and exte
 
 Put the cursor on any token and run `:Inspect` to see its Treesitter/LSP highlight group, then add or edit the corresponding entry in `colorscheme.lua`. Use `:Inspect` liberally — it's the fastest way to find the right group to override.
 
+## Troubleshooting
+
+**Kotlin: `Space gd`, hover, and completion silently stop working — nothing attaches.** The JetBrains `intellij-server` binary behind kotlin-lsp is a time-limited **EAP build that expires every few weeks**. Once it lapses it still launches, prints an expiry notice, and exits *before* initializing — so the client never attaches and none of the `LspAttach` keymaps (`Space gd` among them) ever bind. Confirm it in `:LspLog` (or `~/.local/state/nvim/lsp.log`):
+
+```
+Client kotlin_lsp quit with exit code 7 ...
+"stderr"    "This build of intellij-server has expired. The IDE will now close."
+```
+
+Fix — pull a fresh build and restart Neovim:
+
+```
+:MasonInstall kotlin-lsp
+```
+
+This **recurs**: when Kotlin features die out of nowhere again, it's almost always the same expiry, and the same one-liner fixes it. (Because `Space gd` is wired in the `LspAttach` autocmd in `lsp.lua`, *any* server that fails to attach takes its keymaps down with it — the same log check applies to other languages too.)
+
+**`:MasonInstall` / `:Mason` → `E492: Not an editor command`.** Mason is lazy-loaded, so its commands only exist once the LSP stack has loaded — which happens when you open a file (`BufReadPre`). On the no-file start screen they aren't registered yet. Open any file first, or force the load:
+
+```
+:Lazy load nvim-lspconfig
+:MasonInstall kotlin-lsp
+```
+
+**Kotlin's first open is slow, or `Space gd` finds nothing right after opening.** kotlin-lsp runs a full Gradle import and indexes the project before features light up — a few minutes on a cold project, and it needs network to resolve dependencies. The client attaches quickly but returns nothing until indexing finishes. If it stays broken after that (stale workspace state or a leftover analyzer lock), clear the workspace and reopen:
+
+```
+:KotlinCleanWorkspace
+```
+
+Only one kotlin-lsp runs at a time machine-wide: a second `intellij-server` (even for a different project) can die instantly on the shared analyzer-cache lock, so close other Kotlin sessions if a project won't come up.
+
 ## Validating changes
 
 There is no build or test step. To verify things work:
