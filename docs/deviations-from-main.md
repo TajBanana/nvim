@@ -260,15 +260,78 @@ behaviour. Do not re-add it.
 `~/.local/bin/tree-sitter` survived the prefix change because it's a prebuilt
 native binary, not a node script.
 
-### No clipboard provider — `y` does not reach Windows
+### Undercurl needs the WezTerm **nightly** on Windows
 
-**Status: open as of 2026-08-09.** Diagnosed, not yet fixed.
+**Status: open** — stable WezTerm cannot render diagnostic squiggles on WSL2.
 
-Yanking in nvim does not put anything on the Windows clipboard. The config is
+`colorscheme.lua` styles `DiagnosticUnderlineError`/`Warn` as red and orange
+undercurl. On this box the underlines simply do not appear, and everything on the
+Neovim side is provably correct:
+
+- `vim.diagnostic.config().underline` is `true`; the extmarks carry
+  `DiagnosticUnderlineError` over the right columns with `sp=#f07178 undercurl=true`.
+- Captured through a pty, nvim emits `ESC[4:3m` (undercurl) and
+  `ESC[58:2::r:g:b` (underline colour) exactly as it should.
+
+The terminal drops them. Test it in one command:
+
+```bash
+printf '\e[4mA  legacy underline\e[0m\n'          # renders
+printf '\e[9mB  strikethrough\e[0m\n'             # renders
+printf '\e[4:3mC  undercurl\e[0m\n'               # NOTHING
+printf '\e[4m\e[58:2::255:0:0mD  red underline\e[0m\n'  # underline, but NOT red
+```
+
+Legacy SGR renders; anything with a **subparameter** (`4:1`, `4:3`, `58:...`) is
+discarded. That rules out the font and `line_height`, which were the first
+suspects.
+
+**Cause: WezTerm's bundled ConPTY, not WezTerm itself.** WezTerm has supported
+undercurl for years (upstream `wezterm#415`, closed). On Windows every pane runs
+through ConPTY — `config.default_domain = 'WSL:Debian'` spawns `wsl.exe`, and
+WezTerm ships `conpty.dll`/`OpenConsole.exe` — and the bundled ConPTY strips
+subparameter SGR. Upstream `wezterm#4400` ("Colored undercurl and underline on
+WSL2 / updated ConPTY") is labelled `conpty limitation` + **`fixed-in-nightly`**;
+the note there is that Microsoft's fix "did not make [it] into a release", so
+WezTerm vendored it into nightlies only.
+
+**Fix: install the nightly and pin it.** Stable is a dead end — winget's
+`wez.wezterm` *is* `20240203-110809-5046fc22`, the newest stable, and there has
+been no stable release since Feb 2024.
+
+```powershell
+winget uninstall wez.wezterm
+winget install wez.wezterm.nightly --source winget
+winget pin add wez.wezterm.nightly     # freeze it; nightly otherwise rolls forward
+```
+
+Run it from PowerShell, **not from inside WezTerm** — the installer needs it
+closed. Config at `C:\Users\<you>\.wezterm.lua` is untouched.
+
+**This is Windows-only.** ConPTY does not exist on macOS, so undercurl works on
+stable WezTerm there. The `colorscheme.lua` highlights need **no platform guard** —
+they are correct on both, merely inert here until the nightly is installed.
+
+**Dead ends, recorded so they are not retried:** `config.term = 'wezterm'` cannot
+help — the failure reproduces from a bare `printf`, where `$TERM` plays no part —
+and the `wezterm` terminfo is not installed in this distro, so setting it would
+break TUI key handling.
+
+---
+
+### Clipboard: `wl-clipboard` is required — RESOLVED
+
+**Status: fixed 2026-08-09** by `sudo apt install wl-clipboard`. Verified: a path
+set in nvim's `+` register was read back by PowerShell's `Get-Clipboard`. Kept
+because the diagnosis is not obvious and the same symptom will recur on any fresh
+WSL box — and because installing it had a side effect, recorded at the end.
+
+Before the fix, yanking put nothing on the Windows clipboard. The config was
 **not** at fault — `lua/tajbanana/set.lua` sets `clipboard:append("unnamedplus")`,
-which correctly routes `y` to the `+` register. The gap is that nvim never talks
+which correctly routes `y` to the `+` register. The gap was that nvim never talks
+**not** at fault — `lua/tajbanana/set.lua` sets `clipboard:append("unnamedplus")`,
 to the OS clipboard itself; it shells out to a helper binary, and none of the
-ones it looks for exist on this box:
+ones it probes existed on this box:
 
 ```
 :lua print(vim.fn['provider#clipboard#Error']())
@@ -288,17 +351,30 @@ a working graphical session and the failure reads as an nvim bug. It isn't —
 WSLg provides the display sockets but installs no clipboard CLI, and nvim has
 nothing to exec. Nothing in Lua can fix it; the fix is a package.
 
-**Options, in preference order:**
+**The fix applied: `sudo apt install wl-clipboard`.** nvim probes
+`wl-copy`/`wl-paste` *first* when `WAYLAND_DISPLAY` is set, so it is auto-detected
+with **no config change**, and it fixes the clipboard for every other terminal
+program too. `provider#clipboard#Executable()` now returns `wl-copy`.
 
-1. **`sudo apt install wl-clipboard`** — nvim probes `wl-copy`/`wl-paste` *first*
-   when `WAYLAND_DISPLAY` is set, so this is auto-detected with **no config
-   change**, and it fixes the clipboard for every other terminal program too.
-2. **`win32yank.exe`** into `~/.local/bin` — no sudo, also auto-detected, and
-   independent of WSLg. Matches this machine's established pattern of dropping
-   release binaries into `~/.local` (see the Part B table).
-3. **`clip.exe` + PowerShell via an explicit `vim.g.clipboard`** — needs no
+**⚠ It had a side effect that broke something else.** `wl-clipboard` pulls in
+`xdg-utils` as a dependency — same dpkg transaction, `2026-08-09 19:25:52` — which
+put `xdg-open` on `PATH`. `vim.ui.open` prefers `xdg-open` over `explorer.exe`, and
+this box has no desktop session, so `xdg-open` exits 4 for every file and
+`<leader>go` silently stopped working. Fixed in `set.lua` by choosing the launcher
+explicitly; see the `<leader>go` section in `docs/design-decisions.md`.
+
+**The generalisable lesson:** an apt dependency of an unrelated package changed
+nvim's behaviour with no config change, and failed silently. When installing a
+package to fix one thing here, check what it dragged in:
+`grep " install " /var/log/dpkg.log | tail`.
+
+**Rejected alternatives**, recorded so they are not re-litigated:
+
+1. **`win32yank.exe`** into `~/.local/bin` — no sudo, also auto-detected, and
+   independent of WSLg. A reasonable second choice; unnecessary once apt worked.
+2. **`clip.exe` + PowerShell via an explicit `vim.g.clipboard`** — needs no
    install and the round trip was verified working, but it was also *measured*
-   and is the reason it ranks last:
+   and is the reason it ranked last:
 
    | operation | measured |
    |---|---|
@@ -374,14 +450,14 @@ State verified 2026-08-04 on `windows-config`.
 
 **Open:**
 
+- **Undercurl does not render until WezTerm is upgraded to the nightly** — stable's
+  bundled ConPTY drops subparameter SGR on WSL2, so the diagnostic squiggles are
+  inert. See [Part B](#undercurl-needs-the-wezterm-nightly-on-windows). The config
+  is correct and needs no change; this is purely a terminal upgrade.
 - **The `.wezterm.lua` copy on the Windows side drifts silently.** Nothing
   automates or warns about it, and it has already gone stale once — see
   [A2](#a2-weztermlua--merged-into-one-cross-platform-file). It is in sync as of
   2026-08-09; `diff` the two after any edit to the repo file.
-- **No clipboard provider is installed**, so `y` never reaches the Windows
-  clipboard — see [Part B](#no-clipboard-provider--y-does-not-reach-windows).
-  One `apt install wl-clipboard` closes it; the config side is already correct.
-  This is the open item with a live daily symptom.
 - **`docs/reviews/audit_004_outstanding_findings.md` has unfixed findings.**
   Triage what is left; several are one-line changes, and the doc groups them by
   root cause so clusters can be swept together.

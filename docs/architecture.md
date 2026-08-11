@@ -45,6 +45,7 @@ Each keeps a single concern out of `set.lua`; `set.lua` (or a plugin) calls its
 - `terminal.lua` — F2 terminal-split toggle.
 - `incremental_selection.lua` — treesitter `<M-Up>`/`<M-Down>` selection.
 - `gitutil.lua` — shared git-toplevel resolution.
+- `git_pickers.lua` — the `<leader>gc` / `<leader>gh` commit-history pickers (delta preview).
 - `repo_diagnostics.lua` — repo-wide lint (`<leader>xr`).
 - `definition_picker.lua` — the `<leader>gd` def/type/impl/ref picker (wired from `lsp.lua`).
 - `inlay_tint.lua` — per-kind inlay-hint colouring (wired from `lsp.lua`).
