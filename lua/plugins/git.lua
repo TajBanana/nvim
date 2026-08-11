@@ -28,8 +28,14 @@ local function merge_base(bufnr)
         return nil
     end
     -- Identify the current HEAD so the cache entry is invalidated by a branch
-    -- switch. Falls back to the detached-HEAD sha when there is no branch name.
-    local head = vim.trim(vim.fn.system({ "git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD" }))
+    -- switch. Must be the SHA, not --abbrev-ref: that returns the literal string
+    -- "HEAD" on a detached checkout, so during a bisect, interactive rebase, tag
+    -- checkout or detached worktree every commit produced the SAME key and the
+    -- cache handed back the first commit's fork point for the rest of the
+    -- session -- the exact staleness this key was added to prevent. The sha also
+    -- keys correctly for branches (two branches at one commit share a fork
+    -- point, so sharing the entry is right).
+    local head = vim.trim(vim.fn.system({ "git", "-C", dir, "rev-parse", "HEAD" }))
     if vim.v.shell_error ~= 0 or head == "" then
         return nil
     end
@@ -234,12 +240,17 @@ return {
                         local ft = vim.bo[vim.api.nvim_win_get_buf(w)].filetype
                         if ft == "blame" then
                             pane = w
-                        elseif vim.wo[w].scrollbind and not vim.wo[w].diff then
-                            -- Skip diff windows: gitsigns.diffthis also sets
-                            -- 'scrollbind', so with a diff split open alongside
-                            -- the blame pane the pane would sync to the DIFF's
-                            -- topline instead of the source window's -- exactly
-                            -- the row drift this handler exists to correct.
+                        elseif vim.wo[w].scrollbind and vim.bo[vim.api.nvim_win_get_buf(w)].buftype == "" then
+                            -- gitsigns.diffthis also sets 'scrollbind', so the
+                            -- diff counterpart must be excluded or the pane syncs
+                            -- to ITS topline instead of the source window's.
+                            -- Discriminate on buftype, NOT on 'diff': :diffthis
+                            -- sets 'diff' on BOTH halves, so `not vim.wo[w].diff`
+                            -- excluded the source window too and left `editor`
+                            -- nil -- silently disabling this whole handler for as
+                            -- long as a diff was open. Verified: the counterpart
+                            -- is buftype=acwrite (name `.git//<sha>:<path>`)
+                            -- while the source window is buftype="".
                             editor = w
                         end
                     end

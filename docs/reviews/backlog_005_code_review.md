@@ -14,7 +14,12 @@ independently re-run it.
 
 ## High — silent or total failure
 
-### B1. `lua/plugins/git.lua:32` — merge-base cache key is `"HEAD"` when detached
+> **All five High items below were FIXED on 2026-08-11.** They are kept with their
+> reproductions because each was a silent failure that ordinary use would not
+> resurface, and because the reasoning explains why the current code looks the way
+> it does. See the commit that references this file.
+
+### ✅ FIXED — B1. `lua/plugins/git.lua:32` — merge-base cache key is `"HEAD"` when detached
 
 `rev-parse --abbrev-ref HEAD` returns the literal string `HEAD` on a detached
 checkout, not a sha. The per-HEAD cache key added to fix stale gutter bases
@@ -27,7 +32,7 @@ Compounding: the probe sits *before* the cache check, so every buffer open pays
 two uncached blocking git spawns on the main loop (~1.7ms + ~2.0ms measured,
 ~2.4x on a `/mnt/c` checkout).
 
-### B2. `lua/plugins/git.lua:237` — the diff guard disables the whole handler
+### ✅ FIXED — B2. `lua/plugins/git.lua:237` — the diff guard disables the whole handler
 
 `and not vim.wo[w].diff` was added to skip the diff window, but `:diffthis` sets
 **both** `diff` and `scrollbind` on the source window too. So no editor window is
@@ -35,7 +40,7 @@ ever found, the loop leaves `editor` nil, and the blame scroll-sync re-alignment
 becomes a no-op for as long as a diff is open — reinstating the row drift it
 exists to correct, exactly when alignment matters most.
 
-### B3. `lua/plugins/lsp.lua:121` — the `ts_ls` root_dir override drops upstream behaviour
+### ✅ FIXED — B3. `lua/plugins/lsp.lua:121` — the `ts_ls` root_dir override drops upstream behaviour
 
 Written only to add the `@flow` veto, it replaces lspconfig's entire root
 resolution and loses three things:
@@ -53,7 +58,7 @@ Separately the veto tests `filetype == "javascript"` only, but `.jsx` maps to
 still gets the measured 1747-diagnostic storm. The pragma scan also reads only
 lines 0-20.
 
-### B4. `lua/tajbanana/env.lua:98` — PATH is joined with a hardcoded POSIX `":"`
+### ✅ FIXED — B4. `lua/tajbanana/env.lua:98` — PATH is joined with a hardcoded POSIX `":"`
 
 All three PATH mutations use `":"`, and the line-117 dedup
 `(":"..PATH..":"):find(":"..bin..":")` can never match on Windows, so SDKMAN bins
@@ -71,7 +76,7 @@ not the separator.
 
 ## Medium
 
-### B4b. `init.lua:7` — the lazy.nvim pin is never honoured, and a fresh clone dirties the lockfile
+### ✅ FIXED — B4b. `init.lua:7` — the lazy.nvim pin is never honoured, and a fresh clone dirties the lockfile
 
 Found by building the repo from scratch in an isolated XDG environment, not by
 reading. `init.lua` bootstraps with `git clone --branch=stable`, which fetches the

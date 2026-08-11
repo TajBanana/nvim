@@ -14,6 +14,23 @@ local M = {}
 -- bootstrapped: zero plugins, zero keymaps, from one missing variable.
 -- vim.uv.os_homedir() falls back to the OS's own notion (USERPROFILE on Windows,
 -- the passwd entry on unix), and every caller below tolerates nil.
+-- PATH entries are separated by ";" on Windows and ":" everywhere else. Every
+-- mutation below went through a hardcoded ":", which on native Windows produced
+-- `...;C:\Windows\System32:C:\Users\x\.cargo\bin` -- the new entry was not
+-- found AND the last real entry was destroyed, for every LSP server, formatter
+-- and `:!` command nvim spawns. Routed through platform.lua so this is the only
+-- place the question is asked (CLAUDE.md: every OS test goes through that module).
+local SEP = require("tajbanana.platform").windows and ";" or ":"
+
+---Is `dir` already an entry in PATH? Compares whole entries, so /usr/bin does not
+---match /usr/bin-extra.
+---@param dir string
+---@return boolean
+local function on_path(dir)
+    local padded = SEP .. (vim.env.PATH or "") .. SEP
+    return padded:find(SEP .. dir .. SEP, 1, true) ~= nil
+end
+
 ---@return string|nil
 local function home()
     local h = vim.env.HOME
@@ -113,7 +130,7 @@ local function fix_node_path()
         end
     end
 
-    vim.env.PATH = chosen.path .. ":" .. vim.env.PATH
+    vim.env.PATH = chosen.path .. SEP .. vim.env.PATH
 end
 
 -- rustup's toolchain proxies aren't on the default PATH (brew keeps them in its
@@ -129,7 +146,7 @@ local function fix_cargo_path()
     end
     for _, dir in ipairs(candidates) do
         if vim.fn.isdirectory(dir) == 1 then
-            vim.env.PATH = vim.env.PATH .. ":" .. dir
+            vim.env.PATH = vim.env.PATH .. SEP .. dir
             break
         end
     end
@@ -152,8 +169,8 @@ local function fix_sdkman_path()
         local bin = dir .. "/candidates/" .. candidate .. "/current/bin"
         -- Skip absent candidates and anything already on PATH (e.g. nvim launched
         -- from a shell where `sdk` was already sourced) to avoid duplicate entries.
-        if vim.fn.isdirectory(bin) == 1 and not (":" .. (vim.env.PATH or "") .. ":"):find(":" .. bin .. ":", 1, true) then
-            vim.env.PATH = bin .. ":" .. vim.env.PATH
+        if vim.fn.isdirectory(bin) == 1 and not on_path(bin) then
+            vim.env.PATH = bin .. SEP .. vim.env.PATH
         end
     end
     -- gradle and jdtls read JAVA_HOME over PATH; set it to the SDKMAN default
