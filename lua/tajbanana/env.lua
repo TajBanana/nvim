@@ -5,6 +5,27 @@
 -- system JDK with the SDKMAN default -- see fix_sdkman_path.
 local M = {}
 
+-- Resolved once, and NEVER assumed to exist. `vim.env.HOME` is unset on native
+-- Windows nvim (which exports USERPROFILE instead) and in env-stripped launches
+-- (systemd units, `env -u HOME`, some GUI launchers). Concatenating it unguarded
+-- raised "attempt to concatenate field 'HOME' (a nil value)" out of setup(),
+-- which is called unprotected from set.lua -- itself init.lua's FIRST statement.
+-- An uncaught error there aborts the rest of init.lua, so lazy.nvim never
+-- bootstrapped: zero plugins, zero keymaps, from one missing variable.
+-- vim.uv.os_homedir() falls back to the OS's own notion (USERPROFILE on Windows,
+-- the passwd entry on unix), and every caller below tolerates nil.
+---@return string|nil
+local function home()
+    local h = vim.env.HOME
+    if h == nil or h == "" then
+        h = vim.uv.os_homedir()
+    end
+    if h == nil or h == "" then
+        return nil
+    end
+    return h
+end
+
 -- nvm is lazy-loaded in .zshrc, so node is usually missing from PATH when nvim
 -- launches from a GUI and Mason's node-based servers (ts_ls, yamlls, ...) die
 -- with exit 127. Prepend the nvm node matching nvm's `default` alias, falling
@@ -17,7 +38,11 @@ local function fix_node_path()
     -- vX.Y.Z. An unexpected entry would otherwise make the comparator do
     -- tonumber(nil) < ... and crash table.sort, aborting the whole config load.
     local nodes = {}
-    for _, bin in ipairs(vim.fn.glob(vim.env.HOME .. "/.nvm/versions/node/*/bin", true, true)) do
+    local h = home()
+    if not h then
+        return -- no home directory: nvm cannot be located, nothing to do
+    end
+    for _, bin in ipairs(vim.fn.glob(h .. "/.nvm/versions/node/*/bin", true, true)) do
         local maj, min, patch = bin:match("v(%d+)%.(%d+)%.(%d+)")
         if maj then
             nodes[#nodes + 1] = {
@@ -48,7 +73,11 @@ local function fix_node_path()
         if depth > 5 then
             return name
         end
-        local f = vim.env.HOME .. "/.nvm/alias/" .. name
+        local h = home()
+        if not h then
+            return nil
+        end
+        local f = h .. "/.nvm/alias/" .. name
         if vim.fn.filereadable(f) == 0 then
             return name
         end
@@ -93,7 +122,12 @@ local function fix_cargo_path()
     if vim.fn.executable("cargo") ~= 0 then
         return
     end
-    for _, dir in ipairs({ vim.env.HOME .. "/.cargo/bin", "/opt/homebrew/opt/rustup/bin" }) do
+    local h = home()
+    local candidates = { "/opt/homebrew/opt/rustup/bin", "/usr/local/opt/rustup/bin" }
+    if h then
+        table.insert(candidates, 1, h .. "/.cargo/bin")
+    end
+    for _, dir in ipairs(candidates) do
         if vim.fn.isdirectory(dir) == 1 then
             vim.env.PATH = vim.env.PATH .. ":" .. dir
             break
@@ -109,7 +143,11 @@ end
 -- kotlin-lsp, jdtls, ktlint, and :! gradle match the terminal. Prepending (not
 -- appending) is deliberate: it must beat the system java on PATH.
 local function fix_sdkman_path()
-    local dir = vim.env.SDKMAN_DIR or (vim.env.HOME .. "/.sdkman")
+    local h = home()
+    local dir = vim.env.SDKMAN_DIR or (h and (h .. "/.sdkman"))
+    if not dir then
+        return
+    end
     for _, candidate in ipairs({ "java", "kotlin", "gradle" }) do
         local bin = dir .. "/candidates/" .. candidate .. "/current/bin"
         -- Skip absent candidates and anything already on PATH (e.g. nvim launched

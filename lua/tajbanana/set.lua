@@ -82,6 +82,20 @@ vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile", "TextChanged", "Inser
 -- Neovim has no built-in detection for either.
 -- NOTE: vim.filetype.add patterns are implicitly anchored (^...$) on nvim
 -- 0.11+, so a leading .* is required to match the path prefix.
+-- "helm" only for files that are actually inside a Helm chart: a chart is
+-- defined by a Chart.yaml at the root of the directory holding `templates/`.
+-- Checked with fs_stat rather than a glob so it is one stat per matching buffer.
+local function helm_if_chart(path)
+    local chart_root = path:match("^(.*)/templates/")
+    if not chart_root then
+        return nil
+    end
+    if vim.uv.fs_stat(chart_root .. "/Chart.yaml") or vim.uv.fs_stat(chart_root .. "/Chart.yml") then
+        return "helm"
+    end
+    return nil
+end
+
 vim.filetype.add({
     extension = {
         iml = "xml", -- IntelliJ module files are XML; nvim doesn't detect them
@@ -98,8 +112,16 @@ vim.filetype.add({
         -- this -- could never attach. *.tpl helper files were landing on the
         -- unrelated `mustache`/`smarty` filetype for the same reason.
         -- Priority 10 beats nvim's built-in extension match on .yaml/.yml.
-        [".*/templates/.*%.ya?ml"] = { "helm", { priority = 10 } },
-        [".*/templates/.*%.tpl"] = { "helm", { priority = 10 } },
+        --
+        -- Gated on a Chart.yaml sibling at the chart root. `templates/` is NOT a
+        -- Helm-specific directory name: matching it alone claimed Ansible
+        -- (roles/*/templates/*.yaml), Spring (src/main/resources/templates/),
+        -- CloudFormation and .github/templates as `helm` -- losing yamlls schema
+        -- validation and silently making <leader>gf a no-op on them, since
+        -- formatting.lua has no helm entry. Returning nil falls through to
+        -- nvim's own detection, so a non-chart file stays plain yaml.
+        [".*/templates/.*%.ya?ml"] = { helm_if_chart, { priority = 10 } },
+        [".*/templates/.*%.tpl"] = { helm_if_chart, { priority = 10 } },
     },
 })
 
@@ -154,14 +176,7 @@ vim.keymap.set("n", "<leader>e", function()
 end, { desc = "Show line diagnostics (float)" })
 
 -- Open the current file in its OS default app (html -> browser, pdf -> viewer).
--- vim.ui.open picks the right launcher per platform (open / xdg-open / wslview /
--- explorer.exe), which the previous hardcoded `!open` did not -- that was macOS
--- only and simply errored on Linux and WSL. Going through vim.ui.open also drops
--- the `:!` shell round-trip, so cmdline-special characters (%, #, !) in the
--- filename are no longer re-expanded by Vim before the shell sees them.
---
--- Open the current file in its OS default app. Three platforms, three launchers,
--- and the selection is made HERE rather than by vim.ui.open. Why:
+-- The launcher is selected HERE rather than by vim.ui.open. Why:
 --
 -- 1. vim.ui.open's preference order (runtime/lua/vim/ui.lua) is xdg-open, THEN
 --    wslview, THEN explorer.exe -- so explorer is a fallback, not the WSL rule.
@@ -195,6 +210,15 @@ vim.keymap.set("n", "<leader>go", function()
 
     -- WSL first: it is also `linux`, so the more specific case has to win.
     if plat.wsl then
+        if vim.fn.executable("explorer.exe") ~= 1 then
+            -- Reachable in practice: a distro with `[interop] appendWindowsPath =
+            -- false` in /etc/wsl.conf (a common startup-cost tweak) keeps wslpath
+            -- from /usr/bin but drops the /mnt/c entries that provide explorer.exe.
+            -- Without this guard vim.system RAISES ENOENT -- an uncaught traceback
+            -- out of the keymap, not the error toast this block promises.
+            vim.notify("explorer.exe is not on PATH (WSL interop disabled?)", vim.log.levels.ERROR)
+            return
+        end
         local win = vim.system({ "wslpath", "-w", path }, { text = true }):wait()
         local winpath = vim.trim(win.stdout or "")
         if win.code ~= 0 or winpath == "" then
@@ -206,22 +230,37 @@ vim.keymap.set("n", "<leader>go", function()
         return
     end
 
-    local cmd = plat.mac and "open" or "xdg-open"
-    if vim.fn.executable(cmd) ~= 1 then
+    -- platform.pick keeps the launcher table in one expression and, being keyed by
+    -- platform.name, forces every platform the module knows about to be handled --
+    -- including `windows`, which an `is_mac and ... or ...` ternary silently sent
+    -- to xdg-open, guaranteeing failure on native Windows nvim.
+    local cmd = plat.pick({
+        mac = { "open" },
+        -- `start` is the shell's default-verb launcher; the empty string is its
+        -- title argument, which must be present or a quoted path is taken as one.
+        windows = { "cmd.exe", "/c", "start", "" },
+        linux = { "xdg-open" },
+    })
+    if not cmd then
+        vim.notify("No file opener known for platform: " .. plat.name, vim.log.levels.ERROR)
+        return
+    end
+    if vim.fn.executable(cmd[1]) ~= 1 then
         vim.notify(
-            ("No file opener: `%s` is not executable (mac expects `open`, linux `xdg-open`)"):format(cmd),
+            ("No file opener: `%s` is not executable (mac `open`, windows `cmd.exe`, linux `xdg-open`)"):format(cmd[1]),
             vim.log.levels.ERROR
         )
         return
     end
     -- NOT detached: both launchers hand off to the desktop and exit immediately,
     -- so the exit code arrives at once and the app they spawned is unaffected.
-    vim.system({ cmd, path }, { text = true }, function(r)
+    local argv = vim.list_extend(vim.deepcopy(cmd), { path })
+    vim.system(argv, { text = true }, function(r)
         if r.code ~= 0 then
             local detail = vim.trim((r.stderr or "") ~= "" and r.stderr or (r.stdout or ""))
             vim.schedule(function()
                 vim.notify(
-                    ("%s failed (exit %d)%s"):format(cmd, r.code, detail ~= "" and (": " .. detail) or ""),
+                    ("%s failed (exit %d)%s"):format(cmd[1], r.code, detail ~= "" and (": " .. detail) or ""),
                     vim.log.levels.ERROR
                 )
             end)
