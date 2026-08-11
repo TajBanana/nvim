@@ -189,6 +189,13 @@ return {
             highlights[g] = { fg = "#93a4c3" }
         end
 
+        -- Diagnostic squiggles in the Material palette. onedark's stock colours
+        -- (#f65866 red, #efbd5d gold) are close but off-theme, and the gold reads
+        -- as a second yellow next to @type. Same `fg=none, fmt=undercurl, sp=...`
+        -- shape onedark uses for SpellBad. Errors red, warnings orange.
+        highlights["DiagnosticUnderlineError"] = { fg = "none", fmt = "undercurl", sp = "$md_red" }
+        highlights["DiagnosticUnderlineWarn"] = { fg = "none", fmt = "undercurl", sp = "$md_orange" }
+
         require("onedark").setup({
             style = "deep",
             colors = {
