@@ -162,21 +162,22 @@ red), and `bold` on tsx constructors dropped.
 
 ---
 
-## GitHub shortcuts: isolated module, token-free by default, gh-preferred
+## Forge shortcuts: detect the forge from the remote, token-free by default, CLI-preferred
 
-**Context.** "Open this line / this branch's PR in the browser" is forge-specific — GitHub's URL shapes (`/blob/…#L`, `/pull/…`, `/compare/…`) don't match GitLab/Bitbucket.
+**Context.** "Open this line / this branch's PR in the browser" is forge-specific — GitHub's URL shapes (`/blob/…#L`, `/pull/…`, `/compare/…`) don't match GitLab's (`/-/blob/…#L`, `/-/merge_requests/…`).
 
-This module was originally written for GitLab (`gitlab.lua`, `/-/blob/…#L`, `/-/merge_requests/…`) and was ported to GitHub when the config moved to a personal machine with no GitLab remotes. The port was near-mechanical because both forges publish change-request heads as fetchable refs, so the token-free design below survived intact — see `docs/deviations-from-main.md` for the full rationale.
+This existed twice: `gitlab.lua` on the work machine, `github.lua` on the personal one. Maintaining both meant maintaining a per-machine branch of the whole repo, which is the wrong axis — **the forge is a property of the remote, not of the machine.** The same laptop can hold a GitHub checkout and a GitLab checkout side by side, and a per-machine fork gets both wrong.
 
-**Decision.** Keep all of it in one module, `lua/tajbanana/github.lua`, and make the PR lookup **token-free by default, better with gh**.
+**Decision.** One module, `lua/tajbanana/forge.lua`, which **detects the forge per buffer from the remote host** and keeps every URL-shape difference in a single `FORGES` table. Lookup stays **token-free by default, better with the forge CLI**.
 
 **How.**
-- **Isolation:** the module documents the GitHub assumption in one place; disabling is deleting one `require(...).setup()` line.
+- **Detection:** the host is taken from the already-normalized remote URL and matched as a *substring*, so self-hosted instances (`gitlab.thalesdigital.io`, `github.acme.internal`) resolve correctly. An unrecognised host notifies "Unsupported forge" rather than emitting a plausible-but-wrong link — failing loudly beats a URL that loads and shows the wrong thing.
+- **One table, not one module per forge:** `FORGES` holds the request path, create URL, blob path, range anchor, `ls-remote` head glob/pattern and CLI per forge. Everything else is shared. Adding Bitbucket is one entry.
 - **URL normalization:** one `to_web_url` helper converts any remote form (scp-like, `ssh://`, `https://`) to an https web base, stripping `.git`, embedded credentials, and ssh ports — replacing a fragile gsub chain that leaked tokens and mishandled ports. The remote is resolved from the branch's upstream, not hardcoded `origin`.
 - **PR lookup, token-free fallback:** GitHub publishes PR heads as `refs/pull/<n>/head`, so matching the branch SHA against them via `git ls-remote` finds an existing PR with no `gh` and no API token. (This is the direct analogue of GitLab's `refs/merge-requests/<iid>/head`, which is why the port kept the same shape.)
 - **gh preferred when present:** `gh pr view --json url --jq .url` resolves the PR by **head branch via the API**, which is robust to the local SHA drifting from the pushed PR head (the ls-remote SHA-match's blind spot). gh is the official GitHub CLI, so this isn't a third-party gamble.
 - **No caching:** resolving a PR is a network round-trip (~1–2s, mostly latency, not tool startup). Every `<leader>gm` resolves fresh rather than caching a per-session result, so the state is never stale: a freshly-created PR is picked up immediately, and a closed/re-created PR resolves correctly. The round-trip is async, so nvim never blocks on it.
-- **Range anchors differ:** GitHub repeats the `L` in a line range (`#L10-L20`) where GitLab does not (`#L10-20`). This is the one non-mechanical difference in the port and the easiest thing to get subtly wrong.
+- **Range anchors differ:** GitHub repeats the `L` in a line range (`#L10-L20`) where GitLab does not (`#L10-20`). This is the easiest thing to get subtly wrong, because it **fails soft** — the URL still loads, it just highlights the wrong lines. Both forms are asserted by the module's verification.
 
 **Why not gh-only?** It would need gh installed and authenticated, losing the zero-dependency property that works out of the box. And gh has no command to open an arbitrary file+line, so `<leader>gl` is hand-rolled regardless.
 
