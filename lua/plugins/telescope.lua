@@ -40,6 +40,12 @@ return {
             require("telescope.builtin").find_files({ hidden = true, no_ignore = no_ignore })
         end, desc = "Find files" },
         { "<leader>fw", function() require("telescope.builtin").live_grep() end, desc = "Live grep" },
+        -- Searchable index of every mapping, global and buffer-local, matching on
+        -- mode + lhs + desc. Complements which-key rather than duplicating it:
+        -- which-key browses *forward* from a prefix you already know, this finds
+        -- a key by name when you don't. <CR> runs the mapping. Only useful
+        -- because the config sets `desc` on essentially every map.
+        { "<leader>fk", function() require("telescope.builtin").keymaps() end, desc = "Find keymaps" },
         {
             "<leader>fb",
             function()
