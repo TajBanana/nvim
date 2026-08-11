@@ -39,7 +39,11 @@ M.name = (M.mac and "mac") or (M.wsl and "wsl") or (M.linux and "linux") or (M.w
 
 ---Pick a value by platform, falling back to `default`.
 ---Keeps per-platform constants readable at the call site:
----  local opener = platform.pick({ mac = "open", wsl = "explorer.exe" }, "xdg-open")
+---  local font_size = platform.pick({ mac = 16, windows = 12 }, 14)
+---
+---Deliberately NOT an example: choosing a file opener. nvim's vim.ui.open already
+---does that, and hand-rolling it is how <leader>go broke (see set.lua) -- the
+---launcher and its path format are coupled, so they cannot be picked apart.
 ---@param map table<string, any> keyed by "mac" | "wsl" | "linux" | "windows"
 ---@param default any
 ---@return any
