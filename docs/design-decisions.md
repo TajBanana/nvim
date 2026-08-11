@@ -162,6 +162,31 @@ red), and `bold` on tsx constructors dropped.
 
 ---
 
+## `<leader>go`: pick the launcher here, not in `vim.ui.open`
+
+**Context.** "Open this file in the OS default app" looks like one line of code — `vim.ui.open(path)` — and for a single-platform config it is. Across macOS, WSL and Linux it is three launchers with two different path formats and three different exit-code conventions.
+
+**What went wrong.** The first version called `vim.ui.open` and, under WSL, translated the path with `wslpath -w` first. That worked until `wl-clipboard` was installed to fix the system clipboard: it pulled in `xdg-utils` as a dependency (same dpkg transaction), which put `xdg-open` on `PATH`. `vim.ui.open` prefers `xdg-open` over `explorer.exe`, so nvim silently switched launcher — and this box has no desktop session, so `xdg-open` exits 4 for every file. `<leader>go` stopped working with no change to the config.
+
+Two distinct defects, and the second is why the first survived:
+
+1. **The launcher and the path format are coupled.** Translating to a Windows path and then letting something *else* choose the launcher is only correct while that choice happens to be `explorer.exe`. It is not a stable assumption — it depends on what else is installed.
+2. **`vim.ui.open` cannot report a failed launch.** It launches detached and returns the process object; its error return is non-`nil` only when *no* handler is found at all. A launcher that runs and then fails is indistinguishable from success at the call site.
+
+**Decision.** Select the launcher in `set.lua`, alongside the path translation, and report non-zero exits.
+
+**How.**
+- `platform.wsl` is tested **before** the Linux path, because WSL is also Linux — the more specific case has to win.
+- WSL uses `explorer.exe` with the `wslpath -w` path, and **ignores the exit code**: explorer returns 1 even on success. macOS uses `open`, Linux `xdg-open`, both with POSIX paths.
+- The mac branch is gated on `platform.mac`, not on `executable("open")`. Debian ships `/usr/bin/open` as a symlink to `xdg-open`, so a capability test would happily pick the wrong binary on Linux.
+- mac and Linux launches are **not** detached: both hand off to the desktop and exit immediately, so the exit code arrives at once and the spawned application is unaffected. A non-zero exit becomes an error toast.
+
+**Trade-off.** This duplicates a little of what `vim.ui.open` does, and will not automatically benefit if upstream improves its detection. That is accepted deliberately: the failure mode being avoided is *silent*, and it was caused by an unrelated package's dependency. Explicit beats clever when the alternative fails quietly.
+
+**Not verified on macOS.** The command construction was verified for all three branches by intercepting `vim.system`, and the Linux failure path was verified with a real failing `xdg-open`. Actual macOS behaviour has not been exercised — there is no Mac in reach of this checkout.
+
+---
+
 ## Forge shortcuts: detect the forge from the remote, token-free by default, CLI-preferred
 
 **Context.** "Open this line / this branch's PR in the browser" is forge-specific — GitHub's URL shapes (`/blob/…#L`, `/pull/…`, `/compare/…`) don't match GitLab's (`/-/blob/…#L`, `/-/merge_requests/…`).

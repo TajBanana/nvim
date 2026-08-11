@@ -160,41 +160,71 @@ end, { desc = "Show line diagnostics (float)" })
 -- the `:!` shell round-trip, so cmdline-special characters (%, #, !) in the
 -- filename are no longer re-expanded by Vim before the shell sees them.
 --
--- WSL calls explorer.exe explicitly rather than going through vim.ui.open.
+-- Open the current file in its OS default app. Three platforms, three launchers,
+-- and the selection is made HERE rather than by vim.ui.open. Why:
 --
--- vim.ui.open picks a launcher by preference order (runtime/lua/vim/ui.lua):
--- xdg-open, THEN wslview, THEN explorer.exe. That order is wrong for this box.
--- Installing wl-clipboard to fix the clipboard pulled in xdg-utils as a
--- dependency (same dpkg transaction), which put xdg-open on PATH -- so nvim
--- started preferring it. There is no desktop session and no registered MIME
--- handler here, so xdg-open exits 4 for every file, valid POSIX path or not, and
--- <leader>go silently stopped working. Nothing about the config changed.
+-- 1. vim.ui.open's preference order (runtime/lua/vim/ui.lua) is xdg-open, THEN
+--    wslview, THEN explorer.exe -- so explorer is a fallback, not the WSL rule.
+--    Installing wl-clipboard pulled in xdg-utils as a dependency (same dpkg
+--    transaction), which put xdg-open on PATH and silently moved nvim's choice
+--    onto it. This box has no desktop session and no registered MIME handler, so
+--    xdg-open exits 4 for every file -- valid POSIX path or not -- and
+--    <leader>go stopped working with no config change to blame.
+-- 2. vim.ui.open launches DETACHED and returns the process object; its error
+--    return is non-nil only when NO handler exists at all. A launcher that runs
+--    and then fails is invisible to the caller. That is why (1) went unnoticed.
 --
--- explorer.exe is the launcher that actually works under WSL, and it handles any
--- file type (it invokes the Windows shell's default verb: .html -> browser,
--- .pdf -> viewer). It cannot read POSIX paths, which is why the `wslpath -w`
--- translation and the explicit launcher have to travel together -- converting
--- the path and then letting vim.ui.open choose was the latent bug.
+-- So each platform's launcher and its path format are chosen together (they are
+-- coupled -- picking them apart was the original bug), and every failure is
+-- reported instead of shrugged at:
 --
--- Its exit code is deliberately ignored: explorer.exe returns 1 even on success.
+--   mac    `open <posix>`        exits 0 on success, non-zero on failure
+--   WSL    `explorer.exe <win>`  needs a Windows path; ALWAYS exits 1, even on
+--                                success, so its code is deliberately ignored
+--   linux  `xdg-open <posix>`    exits 0 on success; 1-4 on failure
+--
+-- All three handle any file type -- these invoke the desktop's default-handler
+-- machinery (on Windows, the shell's default verb), not just directories.
 vim.keymap.set("n", "<leader>go", function()
     local path = vim.fn.expand("%:p")
     if path == "" then
         vim.notify("No file to open", vim.log.levels.WARN)
         return
     end
-    if require("tajbanana.platform").wsl then
+    local plat = require("tajbanana.platform")
+
+    -- WSL first: it is also `linux`, so the more specific case has to win.
+    if plat.wsl then
         local win = vim.system({ "wslpath", "-w", path }, { text = true }):wait()
         local winpath = vim.trim(win.stdout or "")
         if win.code ~= 0 or winpath == "" then
             vim.notify("wslpath failed for: " .. path, vim.log.levels.ERROR)
             return
         end
+        -- detach so the launcher outlives nvim; exit code is meaningless here.
         vim.system({ "explorer.exe", winpath }, { detach = true })
         return
     end
-    local ok, err = vim.ui.open(path)
-    if not ok then
-        vim.notify("Could not open file: " .. tostring(err), vim.log.levels.ERROR)
+
+    local cmd = plat.mac and "open" or "xdg-open"
+    if vim.fn.executable(cmd) ~= 1 then
+        vim.notify(
+            ("No file opener: `%s` is not executable (mac expects `open`, linux `xdg-open`)"):format(cmd),
+            vim.log.levels.ERROR
+        )
+        return
     end
+    -- NOT detached: both launchers hand off to the desktop and exit immediately,
+    -- so the exit code arrives at once and the app they spawned is unaffected.
+    vim.system({ cmd, path }, { text = true }, function(r)
+        if r.code ~= 0 then
+            local detail = vim.trim((r.stderr or "") ~= "" and r.stderr or (r.stdout or ""))
+            vim.schedule(function()
+                vim.notify(
+                    ("%s failed (exit %d)%s"):format(cmd, r.code, detail ~= "" and (": " .. detail) or ""),
+                    vim.log.levels.ERROR
+                )
+            end)
+        end
+    end)
 end, { desc = "Open file in default app" })

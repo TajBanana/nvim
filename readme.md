@@ -208,6 +208,25 @@ Resolving a branch's PR is a network round-trip to the GitHub server (~1–2s, m
 
 `<leader>gl` links to the **current branch**, so the branch must be pushed — an unpushed branch's blob URL will 404.
 
+## Opening files in the OS default app (`Space go`)
+
+`Space go` hands the current file to the desktop's default handler — `.html` opens the browser, `.pdf` the viewer, and so on. It works on **macOS, WSL and Linux**, but the three are genuinely different and the config picks the launcher itself rather than delegating to `vim.ui.open`:
+
+| platform | launcher | path passed | exit code |
+|---|---|---|---|
+| macOS | `open` | POSIX | 0 on success |
+| WSL | `explorer.exe` | **Windows** path, via `wslpath -w` | always 1, even on success — ignored |
+| Linux | `xdg-open` | POSIX | 0 on success, 1–4 on failure |
+
+Two reasons this is not left to `vim.ui.open`, both learned the hard way:
+
+- **Its preference order is `xdg-open` → `wslview` → `explorer.exe`**, so `explorer.exe` is a *fallback*, not the WSL rule. Installing `wl-clipboard` (to fix the system clipboard) pulled in `xdg-utils` as a dependency, which put `xdg-open` on `PATH` and moved nvim's choice onto it. On a WSL box with no desktop session and no registered MIME handler, `xdg-open` exits 4 for *every* file — so `Space go` broke with no change to this config at all.
+- **It launches detached and never reports the exit code.** Its error return is non-`nil` only when *no* handler exists, so a launcher that runs and then fails is invisible. That is why the breakage above went unnoticed.
+
+The launcher and the path format are therefore chosen together — converting the path to Windows form and then letting something else pick the launcher was the original bug — and a non-zero exit is now reported as an error toast instead of being swallowed. WSL is exempt from that check because `explorer.exe` returns 1 even when it succeeds.
+
+If `Space go` ever does nothing on Linux, run `xdg-open <file>` in a shell: exit 3 or 4 means there is no desktop handler registered, which is an OS-level problem rather than a Neovim one.
+
 ## LSP servers and formatters
 
 LSP servers are listed in `ensure_installed` in `lua/plugins/lsp.lua` and installed automatically by Mason. To add one, add it to that list; to install something manually, use `:Mason`. Per-server settings (inlay hints, etc.) also live in `lsp.lua`; Kotlin is managed separately by [kotlin.nvim](https://github.com/AlexandrosAlexiou/kotlin.nvim) in `lua/plugins/kotlin.lua`.
