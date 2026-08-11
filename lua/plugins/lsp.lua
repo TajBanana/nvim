@@ -328,6 +328,16 @@ return {
                     end,
                 },
                 virtual_text = true,
+                -- When several diagnostics share a line, nvim draws a marker for
+                -- each but prints only ONE message. Unsorted it picks the last
+                -- one, which is severity-blind: on `if (left < right) {}` kotlin
+                -- reports two ERRORs (unresolved left/right) plus a WARN (empty
+                -- body) all on that line, and the WARN's text was displayed --
+                -- making the file look merely warned-about when it does not
+                -- compile. Sorting puts the highest severity in the message slot.
+                -- (Verified: false -> "if has empty body", true -> "Unresolved
+                -- reference left". `{ reverse = true }` reverts to the warning.)
+                severity_sort = true,
                 signs = {
                     text = {
                         [vim.diagnostic.severity.ERROR] = "E",
