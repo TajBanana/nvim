@@ -13,11 +13,17 @@ return {
     {
         "m4xshen/autoclose.nvim",
         event = "InsertEnter",
-        opts = {
-            keys = {
-                ["<"] = { escape = true, close = true, pair = "<>", disabled_filetypes = {} },
-            },
-        },
+        -- Plugin defaults only: (), [], {}, quotes and backticks.
+        --
+        -- `<` is deliberately NOT paired. autoclose.nvim ships no `<` entry, and
+        -- adding one pairs it by *filetype*, never by context — so it cannot tell
+        -- an HTML tag from `a <= b` or `List<String>` and inserts a stray `>` in
+        -- every comparison and generic. Angle brackets are closed by hand. Do not
+        -- re-add a `keys = { ["<"] = ... }` block here.
+        --
+        -- The default `[">"]` entry stays: it only escapes over an existing `>`,
+        -- it never opens a pair.
+        opts = {},
     },
     {
         -- Diagnostics are shown via Telescope (<leader>xx / <leader>xb); Trouble
