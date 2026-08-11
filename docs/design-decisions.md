@@ -125,7 +125,7 @@ red), and `bold` on tsx constructors dropped.
 
 ## `<leader>gd`: one picker that queries every attached client
 
-**Context.** A buffer often has several LSP clients (a `.tsx` may have ts_ls + eslint + tailwind + graphql). Querying only the first client returns empty results when a *different* client owns the answer. Separate `gd`/`gtd`/`gi`/`gr` keys also fragment muscle memory.
+**Context.** A buffer often has several LSP clients (a `.tsx` may have ts_ls + eslint + graphql). Querying only the first client returns empty results when a *different* client owns the answer. Separate `gd`/`gtd`/`gi`/`gr` keys also fragment muscle memory.
 
 **Decision.** A single `<leader>gd` that merges definition, type-definition, implementation, and references into one Telescope picker, tagged and color-coded by kind.
 

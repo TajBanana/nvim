@@ -262,7 +262,10 @@ native binary, not a node script.
 
 ### Undercurl needs the WezTerm **nightly** on Windows
 
-**Status: open** — stable WezTerm cannot render diagnostic squiggles on WSL2.
+**Status: RESOLVED 2026-08-11** by installing the nightly (`20260810-043511-e723cf50`);
+the `printf` reproducer below now renders a red wavy underline. Kept because the
+diagnosis took a long time, the symptom is silent, and the requirement returns on
+any fresh Windows box — stable WezTerm still cannot render these on WSL2.
 
 `colorscheme.lua` styles `DiagnosticUnderlineError`/`Warn` as red and orange
 undercurl. On this box the underlines simply do not appear, and everything on the
@@ -450,10 +453,6 @@ State verified 2026-08-04 on `windows-config`.
 
 **Open:**
 
-- **Undercurl does not render until WezTerm is upgraded to the nightly** — stable's
-  bundled ConPTY drops subparameter SGR on WSL2, so the diagnostic squiggles are
-  inert. See [Part B](#undercurl-needs-the-wezterm-nightly-on-windows). The config
-  is correct and needs no change; this is purely a terminal upgrade.
 - **The `.wezterm.lua` copy on the Windows side drifts silently.** Nothing
   automates or warns about it, and it has already gone stale once — see
   [A2](#a2-weztermlua--merged-into-one-cross-platform-file). It is in sync as of
@@ -477,6 +476,8 @@ State verified 2026-08-04 on `windows-config`.
 - ~~Part A's changes are uncommitted~~ — all committed, and the "which branch do
   these belong on?" question is answered: they are on `windows-config`, created
   for exactly this subject.
+- ~~Undercurl does not render~~ — WezTerm nightly `20260810-043511` installed
+  2026-08-11; see [Part B](#undercurl-needs-the-wezterm-nightly-on-windows).
 
 **Confirmed set up** (checked while updating this document, so nobody re-checks):
 the lazygit config symlink (`~/.config/lazygit/config.yml` →

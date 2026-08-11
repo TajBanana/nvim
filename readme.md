@@ -159,7 +159,7 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 
 **Inlay hints** show inferred types and parameter names inline (IntelliJ-style). They're on by default wherever the language server supports them — **TS/TSX/JS, Lua, Go, Rust, Kotlin, Java** — and toggle per buffer with `Space ti`. Python (pyright) and Bash (bashls) don't provide them.
 
-**The `Space gd` picker** merges definition, type-definition, implementation, and references into one Telescope list, tagged and color-coded (`[def]` `[type]` `[impl]` `[ref]`). Type any of those words in the prompt to filter. It queries every attached language server, so it works even in buffers with several (e.g. a `.tsx` with ts_ls + eslint + tailwind).
+**The `Space gd` picker** merges definition, type-definition, implementation, and references into one Telescope list, tagged and color-coded (`[def]` `[type]` `[impl]` `[ref]`). Type any of those words in the prompt to filter. It queries every attached language server, so it works even in buffers with several (e.g. a `.tsx` with ts_ls + eslint).
 
 **Repo-wide diagnostics (`Space xr`).** LSP servers only diagnose files you've opened, so `Space xx` can't show problems in files you've never visited. `Space xr` runs the project's actual linter over the whole repo and loads the results into the Telescope picker. It auto-detects the tool by project marker: **Go** → `go vet`, **Rust** → `cargo check`, **Python** → `ruff`, **JS/TS** → the local `node_modules/.bin/eslint` (falls back to `tsc`). Add more in `lua/tajbanana/repo_diagnostics.lua`.
 
