@@ -17,11 +17,12 @@ Requires Neovim v0.11+ (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP AP
 - `lua/plugins/` — Each file returns a lazy.nvim plugin spec table (or list of tables). Lazy auto-loads all files in this directory.
 
 **`lua/tajbanana/` modules** (standalone Lua, not plugin specs; each keeps one concern out of `set.lua`):
-- `github.lua` — **GitHub-specific** shortcuts (`<leader>gm` open/create PR, `<leader>gl` open file/line in the browser). Deliberately isolated because it builds GitHub web URLs that don't work on other forges; keep forge-specific assumptions here, not in `set.lua`.
+- `forge.lua` — **forge shortcuts** (`<leader>gm` open/create PR/MR, `<leader>gl` open file/line in the browser). GitHub vs GitLab is detected per buffer from the *remote host*, not from the machine, so one config serves a personal GitHub box and a work GitLab one. All URL-shape differences live in the `FORGES` table; adding a forge means adding an entry, not another module.
 - `env.lua` — PATH bootstrapping for node (nvm lazy-load, honouring nvm's `default` alias) and cargo/rustc (rustup) when they're missing from PATH, plus a SDKMAN JDK override that runs even when `java` already resolves.
 - `terminal.lua` — the F2 bottom terminal-split toggle.
 - `incremental_selection.lua` — treesitter incremental selection (`<M-Up>`/`<M-Down>`); the node stack is buffer-scoped.
-- `gitutil.lua` — shared git-toplevel resolution (used by `github.lua`, `repo_diagnostics.lua`, and `plugins/git.lua`).
+- `gitutil.lua` — shared git-toplevel resolution (used by `forge.lua`, `repo_diagnostics.lua`, and `plugins/git.lua`).
+- `platform.lua` — OS detection (`mac` / `wsl` / `linux` / `windows` booleans plus a mutually exclusive `name`). Note WSL is *also* Linux, and nvim has no per-distro flag — Ubuntu/Debian/Arch all report `linux`. Every OS test in the config goes through here.
 - `git_pickers.lua` — the `<leader>gc` / `<leader>gh` commit-history Telescope pickers, previewed through git-delta. Uses `new_termopen_previewer` because delta only runs when git's output is a tty; delta options are passed with `git -c` so the preview is independent of the user's global gitconfig.
 - `repo_diagnostics.lua` — repo-wide lint (`<leader>xr`); the tool is picked by project marker.
 - `definition_picker.lua` — the `<leader>gd` flat def/type/impl/ref Telescope picker (wired from `lsp.lua`'s `LspAttach`, not `set.lua`).

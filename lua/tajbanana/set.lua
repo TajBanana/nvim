@@ -118,10 +118,11 @@ vim.keymap.set("n", "<C-u>", "<C-u>zz", { noremap = true, silent = true, desc = 
 
 -- Feature modules extracted from this file (see each for detail): the F2
 -- terminal toggle, treesitter incremental selection (<M-Up>/<M-Down>), and the
--- GitHub-only shortcuts (isolated because they assume a GitHub remote).
+-- forge shortcuts (which detect GitHub vs GitLab from the remote host, so the
+-- same config works on a personal GitHub box and a work GitLab one).
 require("tajbanana.terminal").setup()
 require("tajbanana.incremental_selection").setup()
-require("tajbanana.github").setup()
+require("tajbanana.forge").setup()
 
 -- Esc in normal mode clears search highlighting and closes any floating
 -- windows (diagnostic floats, hover docs, previews) — normal-mode Esc is
@@ -161,14 +162,15 @@ end, { desc = "Show line diagnostics (float)" })
 --
 -- WSL needs one extra step: there vim.ui.open resolves to explorer.exe, a
 -- Windows binary that cannot read POSIX paths, so translate with `wslpath -w`
--- first. Detected via uname rather than a build flag -- nvim reports linux here.
+-- first. `platform.wsl` rather than a bare has("wsl") so every OS test in the
+-- config goes through one module -- see tajbanana/platform.lua.
 vim.keymap.set("n", "<leader>go", function()
     local path = vim.fn.expand("%:p")
     if path == "" then
         vim.notify("No file to open", vim.log.levels.WARN)
         return
     end
-    if vim.fn.has("wsl") == 1 then
+    if require("tajbanana.platform").wsl then
         local win = vim.system({ "wslpath", "-w", path }, { text = true }):wait()
         if win.code == 0 and vim.trim(win.stdout or "") ~= "" then
             path = vim.trim(win.stdout)

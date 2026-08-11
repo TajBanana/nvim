@@ -39,7 +39,8 @@ plugin `config`/`LspAttach` code runs. Plugins lazy-load on their `keys` / `cmd`
 Each keeps a single concern out of `set.lua`; `set.lua` (or a plugin) calls its
 `setup()`:
 
-- `github.lua` — GitHub-only shortcuts (forge-specific URLs; isolated).
+- `forge.lua` — forge shortcuts; GitHub/GitLab detected from the remote host.
+- `platform.lua` — mac/wsl/linux/windows detection (distro-agnostic).
 - `env.lua` — node/cargo PATH bootstrapping when missing from PATH.
 - `terminal.lua` — F2 terminal-split toggle.
 - `incremental_selection.lua` — treesitter `<M-Up>`/`<M-Down>` selection.

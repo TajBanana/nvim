@@ -174,7 +174,7 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 
 - `init.lua` — loads core settings, then bootstraps lazy.nvim
 - `lua/tajbanana/set.lua` — core Vim options and global keymaps (leader = Space); wires in the feature modules below
-- `lua/tajbanana/` modules — each keeps one concern out of `set.lua`: `github.lua` (**GitHub-only** shortcuts, see below), `repo_diagnostics.lua` (the `Space xr` repo-wide linter), `env.lua` (node/cargo PATH fixes), `terminal.lua` (F2 terminal toggle), `incremental_selection.lua` (`M-Up`/`M-Down` node selection), `gitutil.lua` (shared git-root helper), `definition_picker.lua` (the `Space gd` picker), `inlay_tint.lua` (per-kind inlay colouring)
+- `lua/tajbanana/` modules — each keeps one concern out of `set.lua`: `forge.lua` (**forge shortcuts**, GitHub/GitLab auto-detected, see below), `platform.lua` (OS detection), `repo_diagnostics.lua` (the `Space xr` repo-wide linter), `env.lua` (node/cargo PATH fixes), `terminal.lua` (F2 terminal toggle), `incremental_selection.lua` (`M-Up`/`M-Down` node selection), `gitutil.lua` (shared git-root helper), `definition_picker.lua` (the `Space gd` picker), `inlay_tint.lua` (per-kind inlay colouring)
 - `lua/plugins/` — one lazy.nvim spec file per concern: `lsp`, `telescope`, `colorscheme`, `treesitter`, `formatting`, `editor`, `git`, `ui`, `kotlin`, `snacks`, `markdown`
 - `after/queries/` — custom Treesitter highlight queries per language
 
@@ -198,9 +198,9 @@ Two things that are easy to get wrong on Windows and fail silently:
 - Use a **WSL domain**, not `default_prog = { 'wsl.exe', ... }`. The latter spawns wsl.exe as an opaque process, so WezTerm can't track a pane's working directory — which is exactly what the tab-title function reads.
 - Set the domain's `default_cwd`. Without it, panes open in the Windows cwd (`/mnt/c/...`), i.e. the Windows filesystem over the 9p bridge, which is markedly slower for git than the distro's own ext4.
 
-## GitHub-only shortcuts
+## Forge shortcuts (GitHub / GitLab)
 
-These keymaps assume the current file's git remote points at a **GitHub** instance — they build GitHub web URLs and will produce wrong links on GitLab, Bitbucket, or other forges. They live in their own module, `lua/tajbanana/github.lua`, so the assumption stays in one place; delete the `require("tajbanana.github").setup()` line in `set.lua` to disable them, or swap the module for a different forge.
+These keymaps work on **GitHub and GitLab**, including self-hosted instances. The forge is detected per buffer from the remote's host — so a GitHub checkout and a GitLab checkout on the same machine each get the right URLs, with no configuration. Other forges (Bitbucket, Gitea) report "Unsupported forge" rather than producing a wrong link. They live in `lua/tajbanana/forge.lua`; delete the `require("tajbanana.forge").setup()` line in `set.lua` to disable them, or add a `FORGES` entry to support another host.
 
 `<leader>gm` prefers [`gh`](https://cli.github.com/) (the official GitHub CLI) when it's installed — it looks up the PR by head branch via the API, which is robust to the local branch SHA drifting from the pushed PR head. If `gh` isn't installed it falls back to a token-free `git ls-remote` lookup (no CLI, no API token). `<leader>gl` is always token-free. To set gh up: install it, then `gh auth login`.
 
