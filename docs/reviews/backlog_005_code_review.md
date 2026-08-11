@@ -71,6 +71,33 @@ not the separator.
 
 ## Medium
 
+### B4b. `init.lua:7` — the lazy.nvim pin is never honoured, and a fresh clone dirties the lockfile
+
+Found by building the repo from scratch in an isolated XDG environment, not by
+reading. `init.lua` bootstraps with `git clone --branch=stable`, which fetches the
+newest stable *tag*; `lazy-lock.json` pins `306a0552`, which is an ordinary commit
+(`chore(build): auto-generate rockspec mappings`), not a release. lazy.nvim cannot
+restore *itself* during its own bootstrap, so after a clean
+`nvim --headless '+Lazy! restore' +qa` the lockfile has been rewritten:
+
+```
+< "lazy.nvim": ... "306a05526ada..."     committed pin
+> "lazy.nvim": ... "85c7ff3711b7..."     what a fresh bootstrap produces (11.17.5)
+```
+
+Consequences: a new machine has a modified working tree before the user has done
+anything, `git status` is dirty on first launch, and lazy.nvim is the one plugin
+whose pinned version is not reproducible. Everything else restored exactly — 36
+plugins, exit 0, clean boot.
+
+Pre-existing, not introduced by this branch: `origin/main` carries the identical
+pin, last set in `c1729a8`.
+
+Options: pin lazy.nvim to the tag that `--branch=stable` actually resolves to, so
+the two agree; or drop lazy.nvim from the lockfile and let the stable branch own
+its version; or clone at the pinned commit instead of the stable branch. The first
+is the smallest change and keeps `:Lazy restore` meaningful.
+
 ### B5. `lua/tajbanana/terminal.lua:16` — F2 splits a second window onto the same terminal
 
 The current-tabpage clause guards the hide path but not the show path. Reproduced
