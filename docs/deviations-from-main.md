@@ -458,6 +458,11 @@ State verified 2026-08-04 on `windows-config`.
   automates or warns about it, and it has already gone stale once — see
   [A2](#a2-weztermlua--merged-into-one-cross-platform-file). It is in sync as of
   2026-08-09; `diff` the two after any edit to the repo file.
+- **`docs/reviews/backlog_005_code_review.md`** — deferred findings from the
+  2026-08-11 review. Four are High: a merge-base cache key that collapses to
+  `"HEAD"` when detached, a blame guard that disables its own handler during a
+  diff, a `ts_ls` root_dir override that drops upstream's Deno veto and cwd
+  fallback, and POSIX-only PATH joining in `env.lua`.
 - **`docs/reviews/audit_004_outstanding_findings.md` has unfixed findings.**
   Triage what is left; several are one-line changes, and the doc groups them by
   root cause so clusters can be swept together.
