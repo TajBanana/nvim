@@ -102,6 +102,11 @@ return {
                 includeInlayFunctionLikeReturnTypeHints = true,
                 includeInlayEnumMemberValueHints = true,
             }
+            -- Captured BEFORE the vim.lsp.config("ts_ls", ...) call below replaces
+            -- it: reading vim.lsp.config.ts_ls resolves nvim-lspconfig's own
+            -- `lsp/ts_ls.lua`, so the @flow veto can be layered ON TOP of upstream
+            -- instead of replacing it.
+            local upstream_ts_root_dir = (vim.lsp.config.ts_ls or {}).root_dir
             vim.lsp.config("ts_ls", {
                 -- Flow-typed .js is NOT TypeScript. ts_ls attaches to it happily
                 -- and then reports every type annotation as a syntax error
@@ -118,23 +123,43 @@ return {
                 -- from LspAttach does not work -- buf_detach_client leaves the
                 -- client attached, and clearing the diagnostics only hides them
                 -- until the next publish.)
+                -- Delegating matters: the previous version reimplemented root
+                -- resolution wholesale and silently dropped three upstream
+                -- behaviours:
+                --   * the Deno veto (deno.json/deno.lock closer than the package
+                --     lock => do not attach), so ts_ls attached to Deno sources
+                --     and flooded them with resolution errors;
+                --   * rooting on the package-manager LOCK file, which is what
+                --     makes a monorepo share ONE tsserver -- rooting on the
+                --     nearest package.json spawns one per package;
+                --   * the `or vim.fn.getcwd()` fallback, so a standalone
+                --     /tmp/scratch.ts with no markers above it got no ts_ls at
+                --     all: no completion, and no LspAttach keymaps.
                 root_dir = function(bufnr, on_dir)
-                    if vim.bo[bufnr].filetype == "javascript" then
-                        for _, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, 20, false)) do
+                    -- .jsx maps to `javascriptreact`, which is in ts_ls's
+                    -- filetypes -- testing only "javascript" let Flow-typed .jsx
+                    -- through and it still drew the 1747-diagnostic storm this
+                    -- veto exists to stop.
+                    local ft = vim.bo[bufnr].filetype
+                    if ft == "javascript" or ft == "javascriptreact" then
+                        for _, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, 40, false)) do
                             if line:find("@flow", 1, true) then
                                 return -- no on_dir() => no ts_ls for this buffer
                             end
                         end
                     end
-                    local root = vim.fs.root(bufnr, {
+                    if upstream_ts_root_dir then
+                        return upstream_ts_root_dir(bufnr, on_dir)
+                    end
+                    -- Only reached if lspconfig ever stops shipping ts_ls.
+                    on_dir(vim.fs.root(bufnr, {
+                        "package-lock.json",
+                        "yarn.lock",
+                        "pnpm-lock.yaml",
                         "tsconfig.json",
-                        "jsconfig.json",
                         "package.json",
                         ".git",
-                    })
-                    if root then
-                        on_dir(root)
-                    end
+                    }) or vim.fn.getcwd())
                 end,
                 settings = {
                     typescript = { inlayHints = ts_inlay },
