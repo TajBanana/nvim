@@ -1,7 +1,7 @@
 # Deviations from main
 
-Written 2026-08-03. Records what was changed on this machine and **why**, so a
-future session doesn't have to re-derive it.
+Written 2026-08-03, updated 2026-08-04. Records what was changed on this machine
+and **why**, so a future session doesn't have to re-derive it.
 
 Two very different kinds of deviation are recorded here:
 
@@ -10,9 +10,19 @@ Two very different kinds of deviation are recorded here:
 
 **Context.** Personal Windows PC, WSL2 Debian 13 (trixie), `amd64`. The repo is
 cloned to `~/.config/nvim` from `https://github.com/TajBanana/nvim` and checked
-out on `feat/per-line-blame-images-gotmpl`. The readme's setup instructions
-assume **macOS + Homebrew**; almost none of them apply verbatim here, which is
-what Part B is about.
+out on **`windows-config`**. The readme's setup instructions assume **macOS +
+Homebrew**; almost none of them apply verbatim here, which is what Part B is
+about.
+
+**Branch lineage.** The work described here started as uncommitted changes on
+`feat/per-line-blame-images-gotmpl`, moved to `fix/audit-findings-2026-08` while
+the audit fixes landed, and now lives on **`windows-config`** — a branch created
+specifically to hold "make this repo work on this Windows/WSL2 box", which is
+the subject of A1-A3 (A4 is audit follow-up that simply landed here too).
+Earlier revisions of this document named
+those older branches; `windows-config` supersedes them. Historical records under
+`docs/reviews/` still name the branch they ran on, deliberately — see the note
+in [A1](#a1-gitlab--github-port).
 
 ---
 
@@ -20,7 +30,8 @@ what Part B is about.
 
 ### A1. GitLab → GitHub port
 
-**Status:** uncommitted working-tree changes on `feat/per-line-blame-images-gotmpl`.
+**Status:** committed on `windows-config` as `2536588`
+(*feat(git): port the forge shortcuts from GitLab to GitHub*).
 
 **Why.** This is a personal machine with no access to `gitlab.thalesdigital.io`
 and no reason to acquire it — work and personal identities are deliberately kept
@@ -82,8 +93,17 @@ directions cheap.
 
 ### A2. `.wezterm.lua` — merged into one cross-platform file
 
-**Status:** uncommitted, same branch. Also **copied** to `C:\Users\TajBanana\.wezterm.lua`
-(previous version backed up alongside it as `.wezterm.lua.bak-20260803`).
+**Status:** committed on `windows-config` as `1fa5679`
+(*feat(wezterm): merge the macOS and Windows configs into one cross-platform file*).
+Also **copied** to `C:\Users\TajBanana\.wezterm.lua` (previous version backed up
+alongside it as `.wezterm.lua.bak-20260803`).
+
+> **This copy has already drifted once.** By 2026-08-04 it had fallen behind the
+> `shells[proc]` filter in the window-title function, so on the Windows side the
+> *window* title read `[zsh] nvim` while the tab for the same pane read `nvim`.
+> Re-copied 2026-08-09 and verified identical; the pre-overwrite version is kept
+> as `.wezterm.lua.bak-20260809-143935`. Expect this to recur — see the
+> deployment note at the end of this section.
 
 **Why.** The repo file was macOS-only; the Windows machine kept a hand-edited
 fork. They had drifted **in both directions**:
@@ -126,7 +146,17 @@ cycles `'' → 'sleep 1' → ''`, and OSC 7 reports
 
 **Deployment is a copy, not a symlink** — WezTerm runs on Windows and reads
 `C:\Users\<you>\.wezterm.lua`; a WSL symlink into `~/.config/nvim` isn't
-resolvable from there. Re-copy after editing the repo file.
+resolvable from there. Re-copy after editing the repo file:
+
+```bash
+cp ~/.config/nvim/.wezterm.lua /mnt/c/Users/TajBanana/.wezterm.lua
+# check first:
+diff ~/.config/nvim/.wezterm.lua /mnt/c/Users/TajBanana/.wezterm.lua
+```
+
+Nothing automates this and nothing warns you, so the two drift silently — which
+is exactly how the fork this section exists to undo came about in the first
+place. The `diff` above is the cheap guard; run it after any `.wezterm.lua` edit.
 
 ### A3. `lazy-lock.json` — resolved conflict, no net change
 
@@ -143,6 +173,49 @@ one artifact line.
 
 **Lesson:** on a fresh clone use **`:Lazy restore`** (installs at the pinned
 commits), never `:Lazy sync` (updates *past* them and rewrites the lockfile).
+
+**A related lockfile gap, since fixed.** `cmp-buffer` was declared as an
+nvim-cmp dependency in `lua/plugins/lsp.lua` but was absent from both
+`lazy-lock.json` and the plugin directory — so nvim-cmp advertised a `buffer`
+source that nothing provided and word-from-buffer completion silently did
+nothing. It surfaced only when a headless boot installed the missing plugin and
+lazy wrote the new lockfile line. Both are now present.
+
+**Worth generalising:** a spec/lockfile mismatch fails *silently* here, because
+lazy just installs the missing plugin on the next start and says nothing. After
+adding a dependency, confirm it reached the lockfile (`grep <plugin> lazy-lock.json`)
+rather than assuming the spec edit was enough.
+
+### A4. Audit fixes and git-delta
+
+**Status:** committed on `windows-config`.
+
+Not machine-specific deviations, but they landed on this branch and a future
+reader will otherwise wonder why it carries more than a forge port and a
+terminal config. All but the last come from the audit recorded in
+`docs/reviews/audit_004_outstanding_findings.md`.
+
+| Commit | Change |
+|---|---|
+| `3b49cfb` | lspconfig loads eagerly; servers that cannot run on this box are no longer enabled (the missing Rust toolchain made every `.rs` buffer throw). |
+| `66d854b` | Real Helm chart templates (`*/templates/*.yaml`) route to the `helm` filetype instead of drawing thousands of bogus `yamlls` diagnostics. |
+| `da39112` | `<M-Up>` no longer errors at the treesitter root, and no longer reuses a stale node stack. |
+| `393b3ad` | `GitSignsUpdate` handler guarded; merge-base cache keyed by repo *and* HEAD so a branch switch recomputes it. |
+| `adb5ed0` | ktlint's exit 1 accepted (it still writes valid output), and `jsonc` routed through prettier. |
+| `63002d9` | Assorted correctness fixes from the same audit. |
+| `6f8ddc5` | git-delta for side-by-side diffs. |
+
+**git-delta is wired by `include`, not by symlink** — `git/delta.gitconfig` is
+pulled in with `git config --global --add include.path ~/.config/nvim/git/delta.gitconfig`,
+so `git config --global` edits and this repo can never overwrite each other.
+Verified present in the global config on this machine, with `delta` on PATH at
+`/usr/bin/delta`.
+
+**The audit is not finished.** `docs/reviews/audit_004_outstanding_findings.md`
+still lists outstanding findings that were confirmed but not fixed, plus a
+"Refuted — do not spend time on these" section listing 25 plausible-sounding
+candidates already disproven. Read that section before opening a new audit; a
+fresh static pass will re-raise several of them.
 
 ---
 
@@ -186,6 +259,54 @@ behaviour. Do not re-add it.
 
 `~/.local/bin/tree-sitter` survived the prefix change because it's a prebuilt
 native binary, not a node script.
+
+### No clipboard provider — `y` does not reach Windows
+
+**Status: open as of 2026-08-09.** Diagnosed, not yet fixed.
+
+Yanking in nvim does not put anything on the Windows clipboard. The config is
+**not** at fault — `lua/tajbanana/set.lua` sets `clipboard:append("unnamedplus")`,
+which correctly routes `y` to the `+` register. The gap is that nvim never talks
+to the OS clipboard itself; it shells out to a helper binary, and none of the
+ones it looks for exist on this box:
+
+```
+:lua print(vim.fn['provider#clipboard#Error']())
+clipboard: No clipboard tool. :help clipboard
+
+has('clipboard') = 0        provider#clipboard#Executable() = ''
+```
+
+| Helper nvim probes | Present here |
+|---|---|
+| `wl-copy` / `wl-paste` | ❌ — despite WSLg running (`WAYLAND_DISPLAY=wayland-0`) |
+| `xclip` / `xsel` | ❌ — despite `DISPLAY=:0` |
+| `win32yank.exe` | ❌ — the usual WSL helper |
+
+**The trap:** `WAYLAND_DISPLAY` and `DISPLAY` are both set, so this *looks* like
+a working graphical session and the failure reads as an nvim bug. It isn't —
+WSLg provides the display sockets but installs no clipboard CLI, and nvim has
+nothing to exec. Nothing in Lua can fix it; the fix is a package.
+
+**Options, in preference order:**
+
+1. **`sudo apt install wl-clipboard`** — nvim probes `wl-copy`/`wl-paste` *first*
+   when `WAYLAND_DISPLAY` is set, so this is auto-detected with **no config
+   change**, and it fixes the clipboard for every other terminal program too.
+2. **`win32yank.exe`** into `~/.local/bin` — no sudo, also auto-detected, and
+   independent of WSLg. Matches this machine's established pattern of dropping
+   release binaries into `~/.local` (see the Part B table).
+3. **`clip.exe` + PowerShell via an explicit `vim.g.clipboard`** — needs no
+   install and the round trip was verified working, but it was also *measured*
+   and is the reason it ranks last:
+
+   | operation | measured |
+   |---|---|
+   | `clip.exe` write (yank) | ~27 ms |
+   | `powershell Get-Clipboard` (paste) | **~225 ms** |
+
+   With `unnamedplus` that quarter-second lands on paste operations, and
+   PowerShell additionally appends a trailing newline and mangles CRLF.
 
 ---
 
@@ -249,11 +370,34 @@ Auth is `gh` with an OAuth token (HTTPS protocol), scopes `gist`, `read:org`,
 
 ## Part E — still open
 
-- `p10k configure` has not been run — no `~/.p10k.zsh` yet.
-- Part A's changes are **uncommitted**. Decide whether they belong on this
-  feature branch (which is about per-line blame + gotmpl) or on their own — the
-  forge port in particular is unrelated to that branch's subject.
-- `.ideavimrc` is not symlinked to `~/.ideavimrc`. Only matters if IntelliJ is
-  run inside WSL, which it isn't here.
-- The `.wezterm.lua` copy on the Windows side must be **re-copied** after any
-  edit to the repo file; nothing automates it.
+State verified 2026-08-04 on `windows-config`.
+
+**Open:**
+
+- **The `.wezterm.lua` copy on the Windows side drifts silently.** Nothing
+  automates or warns about it, and it has already gone stale once — see
+  [A2](#a2-weztermlua--merged-into-one-cross-platform-file). It is in sync as of
+  2026-08-09; `diff` the two after any edit to the repo file.
+- **No clipboard provider is installed**, so `y` never reaches the Windows
+  clipboard — see [Part B](#no-clipboard-provider--y-does-not-reach-windows).
+  One `apt install wl-clipboard` closes it; the config side is already correct.
+  This is the open item with a live daily symptom.
+- **`docs/reviews/audit_004_outstanding_findings.md` has unfixed findings.**
+  Triage what is left; several are one-line changes, and the doc groups them by
+  root cause so clusters can be swept together.
+- **`.ideavimrc` is not symlinked** to `~/.ideavimrc`. Only matters if IntelliJ
+  is run inside WSL, which it isn't here — the readme's symlink instruction is
+  therefore correct but not applicable on this box.
+
+**Closed since this document was written:**
+
+- ~~`p10k configure` has not been run~~ — `~/.p10k.zsh` now exists (90K) and is
+  sourced from `.zshrc`.
+- ~~Part A's changes are uncommitted~~ — all committed, and the "which branch do
+  these belong on?" question is answered: they are on `windows-config`, created
+  for exactly this subject.
+
+**Confirmed set up** (checked while updating this document, so nobody re-checks):
+the lazygit config symlink (`~/.config/lazygit/config.yml` →
+`~/.config/nvim/lazygit/config.yml`) and the delta `include.path` entry in the
+global gitconfig are both in place.
