@@ -160,10 +160,23 @@ end, { desc = "Show line diagnostics (float)" })
 -- the `:!` shell round-trip, so cmdline-special characters (%, #, !) in the
 -- filename are no longer re-expanded by Vim before the shell sees them.
 --
--- WSL needs one extra step: there vim.ui.open resolves to explorer.exe, a
--- Windows binary that cannot read POSIX paths, so translate with `wslpath -w`
--- first. `platform.wsl` rather than a bare has("wsl") so every OS test in the
--- config goes through one module -- see tajbanana/platform.lua.
+-- WSL calls explorer.exe explicitly rather than going through vim.ui.open.
+--
+-- vim.ui.open picks a launcher by preference order (runtime/lua/vim/ui.lua):
+-- xdg-open, THEN wslview, THEN explorer.exe. That order is wrong for this box.
+-- Installing wl-clipboard to fix the clipboard pulled in xdg-utils as a
+-- dependency (same dpkg transaction), which put xdg-open on PATH -- so nvim
+-- started preferring it. There is no desktop session and no registered MIME
+-- handler here, so xdg-open exits 4 for every file, valid POSIX path or not, and
+-- <leader>go silently stopped working. Nothing about the config changed.
+--
+-- explorer.exe is the launcher that actually works under WSL, and it handles any
+-- file type (it invokes the Windows shell's default verb: .html -> browser,
+-- .pdf -> viewer). It cannot read POSIX paths, which is why the `wslpath -w`
+-- translation and the explicit launcher have to travel together -- converting
+-- the path and then letting vim.ui.open choose was the latent bug.
+--
+-- Its exit code is deliberately ignored: explorer.exe returns 1 even on success.
 vim.keymap.set("n", "<leader>go", function()
     local path = vim.fn.expand("%:p")
     if path == "" then
@@ -172,9 +185,13 @@ vim.keymap.set("n", "<leader>go", function()
     end
     if require("tajbanana.platform").wsl then
         local win = vim.system({ "wslpath", "-w", path }, { text = true }):wait()
-        if win.code == 0 and vim.trim(win.stdout or "") ~= "" then
-            path = vim.trim(win.stdout)
+        local winpath = vim.trim(win.stdout or "")
+        if win.code ~= 0 or winpath == "" then
+            vim.notify("wslpath failed for: " .. path, vim.log.levels.ERROR)
+            return
         end
+        vim.system({ "explorer.exe", winpath }, { detach = true })
+        return
     end
     local ok, err = vim.ui.open(path)
     if not ok then
