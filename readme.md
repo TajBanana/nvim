@@ -68,6 +68,7 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 |-----------------------------|-----------------------------------------------------------------------|
 | `Space ff`                  | Find files (Telescope)                                                |
 | `Space fw`                  | Live grep — search text across the project                            |
+| `Space fk`                  | Search every keymap by name (mode + keys + description)               |
 | `Ctrl-p`                    | Find git-tracked files                                                |
 | `Alt-1`                     | Toggle the file tree                                                  |
 | `E` (in file tree)          | Toggle recursive expand of the directory under the cursor             |
@@ -202,11 +203,19 @@ Two things that are easy to get wrong on Windows and fail silently:
 
 These keymaps work on **GitHub and GitLab**, including self-hosted instances. The forge is detected per buffer from the remote's host — so a GitHub checkout and a GitLab checkout on the same machine each get the right URLs, with no configuration. Other forges (Bitbucket, Gitea) report "Unsupported forge" rather than producing a wrong link. They live in `lua/tajbanana/forge.lua`; delete the `require("tajbanana.forge").setup()` line in `set.lua` to disable them, or add a `FORGES` entry to support another host.
 
-`<leader>gm` prefers [`gh`](https://cli.github.com/) (the official GitHub CLI) when it's installed — it looks up the PR by head branch via the API, which is robust to the local branch SHA drifting from the pushed PR head. If `gh` isn't installed it falls back to a token-free `git ls-remote` lookup (no CLI, no API token). `<leader>gl` is always token-free. To set gh up: install it, then `gh auth login`.
+`<leader>gm` prefers the forge's own CLI when it's installed — [`gh`](https://cli.github.com/) for GitHub, [`glab`](https://gitlab.com/gitlab-org/cli) for GitLab. Either looks the change request up by head branch via the API, which is robust to the local branch SHA drifting from the pushed head. If the CLI isn't installed it falls back to a token-free `git ls-remote` lookup (no CLI, no API token), which works because both forges publish change-request heads as fetchable refs. `<leader>gl` is always token-free. To set the CLI up: install it, then `gh auth login` (or `glab auth login`).
 
 Resolving a branch's PR is a network round-trip to the GitHub server (~1–2s, mostly latency — the call is async, so nvim never blocks). Each `<leader>gm` press shows a brief "Looking up pull request…" while it resolves, then opens the PR (or the compare/create page if there's none yet). It resolves fresh every time, so a just-created PR is always picked up.
 
 `<leader>gl` links to the **current branch**, so the branch must be pushed — an unpushed branch's blob URL will 404.
+
+## Diagnostics: one message per line
+
+When several diagnostics land on the same line, Neovim draws a marker for each but prints only **one message** as virtual text. The config sets `severity_sort = true`, so the message shown is the **highest severity** on that line.
+
+This matters more than it sounds. Unsorted — Neovim's default — the message is whichever diagnostic happened to arrive last, regardless of severity. On real Kotlin like `if (left < right) {}` the server reports two errors (unresolved `left`, unresolved `right`) *and* a warning (empty `if` body) all on that one line, and the **warning's** text was displayed: a file that does not compile looked merely warned-about.
+
+The markers still show the true picture — count the `■` glyphs, or check the gutter sign and the statusline counts. `Space e` shows every diagnostic on the current line in a float, and `Space xb` lists them all in Telescope.
 
 ## Opening files in the OS default app (`Space go`)
 
@@ -264,6 +273,8 @@ This **recurs**: when Kotlin features die out of nowhere again, it's almost alwa
 :Lazy load nvim-lspconfig
 :MasonInstall kotlin-lsp
 ```
+
+**Kotlin diagnostics never appear, even though the LSP is attached.** kotlin-lsp publishes **nothing on open** — it only analyses after the document changes. Measured: a correctly-attached client sat at zero diagnostics for **9 minutes**, then produced all of them the moment a single edit landed. So "wait longer" is the wrong remedy; type a character and delete it (`i`, space, `Backspace`, `Esc`) and they arrive within seconds. Confirm with `:lua =#vim.diagnostic.get(0)` before and after.
 
 **Kotlin's first open is slow, or `Space gd` finds nothing right after opening.** kotlin-lsp runs a full Gradle import and indexes the project before features light up — a few minutes on a cold project, and it needs network to resolve dependencies. The client attaches quickly but returns nothing until indexing finishes. If it stays broken after that (stale workspace state or a leftover analyzer lock), clear the workspace and reopen:
 

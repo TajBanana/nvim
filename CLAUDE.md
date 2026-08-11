@@ -48,6 +48,7 @@ Requires Neovim v0.11+ (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP AP
 - **LSP servers** are managed via Mason with `ensure_installed`; add new servers there. LSP keymaps are set via `LspAttach` autocmd.
 - **Formatters** are configured per-filetype in `formatting.lua` via conform.nvim's `formatters_by_ft`. Formatters must be installed via Mason (`:Mason`).
 - **Color customization** uses treesitter highlight groups and LSP semantic tokens in `colorscheme.lua`. Use `:Inspect` to find the highlight group under the cursor.
+- **Lua in this repo is hand-formatted; stylua is NOT enforced repo-wide.** 17 of 23 `.lua` files currently differ from `stylua.toml` — chiefly `collapse_simple_statement = "Always"`, which the hand-written code ignores in favour of expanded guards. Consequence: running `<leader>gf` on a Lua file reformats guards you did not touch, producing unrelated diff noise. Match the surrounding file's style when editing rather than the config, or reformat the whole repo deliberately in its own commit — but do not do it incidentally.
 
 ## Symlinks
 
