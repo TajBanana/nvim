@@ -31,9 +31,23 @@ end
 -- base, dropping the .git suffix, embedded credentials, and any ssh port.
 local function to_web_url(url)
     url = url:gsub("%.git$", "")
-    local host, path = url:match("^[%w._-]+@([^:/]+):(.+)$") -- scp-like: git@host:owner/repo
-    if host then
-        return "https://" .. host .. "/" .. path, host
+    -- scp-like: [user@]host:owner/repo. The user part is OPTIONAL in git's syntax,
+    -- so `gitlab.example.com:owner/repo.git` must parse too. Anchored on a host
+    -- that contains no "/" before the ":", which is what distinguishes this form
+    -- from a local path like `../repo:name`.
+    -- Two explicit alternatives rather than an optional `@?`: Lua's `*` is greedy
+    -- with no backtracking preference, so `[%w._-]*@?([%w._-]+)` on a userless
+    -- URL let the first class eat the host and captured only its last character
+    -- (`gitlab.example.com:o/r` -> host `m`). The scheme guard stops the second
+    -- pattern matching `https` as a host in `https://...`.
+    if not url:match("^%a[%w+.-]*://") then
+        local host, path = url:match("^[%w._-]+@([%w._-]+):(.+)$")
+        if not host then
+            host, path = url:match("^([%w._-]+):(.+)$")
+        end
+        if host then
+            return "https://" .. host .. "/" .. path, host
+        end
     end
     local rest = url:match("^%a[%w+.-]*://(.+)$") -- scheme://[user[:pass]@]host[:port]/path
     if rest then
@@ -104,20 +118,54 @@ local FORGES = {
     },
 }
 
--- Identify the forge from the remote host. Matched as a substring so
--- self-hosted instances (gitlab.example.com, github.acme.internal) resolve too.
-local function forge_for(host)
+-- Identify the forge for a remote host, in three escalating steps.
+--
+-- A plain substring test over the whole host was wrong in both directions: it
+-- REFUSED self-hosted instances whose name does not carry the vendor
+-- (`git.thalesdigital.io` is GitLab), which is the case this module was
+-- generalised to serve, and it ACCEPTED hosts that merely contain the string
+-- (`notgitlab.com`, or an ssh alias like `work-gitlab`), emitting a confidently
+-- wrong URL -- the exact failure the header claims to prevent.
+--
+-- 1. An explicit per-repo override always wins:
+--        git config --local nvim.forge gitlab
+--    This is the answer for a self-hosted host that cannot be inferred. It lives
+--    in the repo's own git config, so it travels with the checkout and needs no
+--    machine-specific nvim configuration.
+-- 2. Otherwise match on dot-separated LABELS, not raw substrings, so
+--    `gitlab.example.com` and `github.acme.internal` resolve while
+--    `notgitlab.com` does not.
+-- 3. Otherwise refuse, and say how to fix it.
+---@param host string|nil
+---@param dir string|nil repo dir, for reading the per-repo override
+---@return table|nil forge, string|nil hint
+local function forge_for(host, dir)
+    if dir then
+        local override = git_in_dir(dir, { "config", "--get", "nvim.forge" })
+        if vim.v.shell_error == 0 and override ~= "" then
+            local f = FORGES[override:lower()]
+            if f then
+                return f
+            end
+            return nil, ("nvim.forge is set to '%s'; expected one of: %s"):format(
+                override,
+                table.concat(vim.tbl_keys(FORGES), ", ")
+            )
+        end
+    end
     if not host then
         return nil
     end
-    host = host:lower()
-    if host:find("gitlab", 1, true) then
-        return FORGES.gitlab
+    for label in host:lower():gmatch("[^.]+") do
+        if FORGES[label] then
+            return FORGES[label]
+        end
     end
-    if host:find("github", 1, true) then
-        return FORGES.github
-    end
-    return nil
+    return nil,
+        ("Unsupported forge for host: %s\nIf this host is a self-hosted forge, run:  git config --local nvim.forge <%s>"):format(
+            host,
+            table.concat(vim.tbl_keys(FORGES), "|")
+        )
 end
 
 -- Resolve { dir, branch, remote_name, base, forge } for the current buffer, or
@@ -143,9 +191,9 @@ local function repo_context()
         return nil
     end
     local base, host = to_web_url(remote)
-    local forge = forge_for(host)
+    local forge, hint = forge_for(host, dir)
     if not forge then
-        vim.notify("Unsupported forge for host: " .. tostring(host), vim.log.levels.WARN)
+        vim.notify(hint or ("Unsupported forge for host: " .. tostring(host)), vim.log.levels.WARN)
         return nil
     end
     return { dir = dir, branch = branch, remote_name = remote_name, base = base, forge = forge }
@@ -248,15 +296,20 @@ function M.open_line(range)
         vim.notify("Not in a git repository", vim.log.levels.WARN)
         return
     end
-    -- rev-parse --show-toplevel resolves symlinks but expand("%:p") does not, so
-    -- resolve before slicing or a symlinked checkout yields a truncated path.
-    file = vim.fn.resolve(file)
-    root = vim.fn.resolve(root)
-    if not vim.startswith(file, root .. "/") then
+    -- vim.fs.relpath does containment, separator normalisation and ./.. collapsing
+    -- in one call, and returns nil when `file` is not under `root`. The previous
+    -- `startswith(file, root .. "/")` plus `sub(#root + 2)` baked in a POSIX
+    -- separator, so on native Windows -- where expand("%:p") yields backslashes
+    -- but `git rev-parse --show-toplevel` always yields forward slashes -- it
+    -- rejected every file in the repo.
+    --
+    -- resolve() first because --show-toplevel resolves symlinks and expand() does
+    -- not; without it a symlinked checkout produced a truncated path.
+    local relpath = vim.fs.relpath(vim.fn.resolve(root), vim.fn.resolve(file))
+    if not relpath then
         vim.notify("File is outside the repository root", vim.log.levels.WARN)
         return
     end
-    local relpath = file:sub(#root + 2)
     local frag
     if range and range[2] and range[1] ~= range[2] then
         frag = ctx.forge.range_anchor(range[1], range[2])
