@@ -27,6 +27,7 @@ Requires Neovim v0.11+ (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP AP
 - `repo_diagnostics.lua` — repo-wide lint (`<leader>xr`); the tool is picked by project marker.
 - `definition_picker.lua` — the `<leader>gd` flat def/type/impl/ref Telescope picker (wired from `lsp.lua`'s `LspAttach`, not `set.lua`).
 - `inlay_tint.lua` — re-tints inlay hints per LSP kind (type vs parameter); set up from `lsp.lua`.
+- `lsp_status.lua` — the lualine statusline LSP-load indicator (✓ ready / ⟳ loading / ✗ expected-but-not-attached / ○ no server, beside the filetype); required at render time from `ui.lua`'s `lualine_x`. Tracks each filetype's single PRIMARY server (see the module's `PRIMARY` table — keep it in sync with `lsp.lua`'s `ensure_installed`) and waits on LSP work-done progress so ✓ means finished loading, not merely attached.
 
 **Plugin organization by file:**
 - `lsp.lua` — nvim-lspconfig + Mason (auto-installs LSP servers) + nvim-cmp (completion). nvim-lspconfig is `lazy = false` on purpose — see the note in the file; lazy-loading it on `BufReadPre` skipped brand-new files, and adding `BufNewFile` breaks filetype detection. `automatic_enable` enables every *installed* server lspconfig knows, so non-servers Mason installs for other reasons (e.g. the `stylua` formatter, which lspconfig also ships an `lsp/` wrapper for) must be listed in its `exclude`.
@@ -36,7 +37,7 @@ Requires Neovim v0.11+ (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP AP
 - `formatting.lua` — conform.nvim (format-on-demand, not auto-format)
 - `editor.lua` — Editing utilities (surround, comments, autoclose, trouble, vim-test)
 - `git.lua` — gitsigns (hunk nav `<leader>oo`/`pp` open a diff preview; gutter defaults to an IntelliJ-style whole-branch base = merge-base with main/master/origin/*, cached per repo *and* per HEAD so a branch switch recomputes it, toggled per-buffer with `<leader>gB`), git-blame (inline), blame.nvim (per-line annotate pane on `<leader>gb`), lazygit (fugitive removed: lazygit + gitsigns.diffthis cover it)
-- `ui.lua` — lualine, indent-blankline, nvim-tree (file explorer; `E` toggles scoped expand)
+- `ui.lua` — lualine (statusline; its `lualine_x` section includes the `tajbanana.lsp_status` LSP-load indicator), indent-blankline, nvim-tree (file explorer; `E` toggles scoped expand)
 - `kotlin.lua` — kotlin.nvim managing JetBrains kotlin-lsp (excluded from mason-lspconfig auto-enable)
 - `snacks.lua` — snacks.nvim image module: inline raster viewing (svg opens as XML; the markdown document-image preview is disabled)
 - `markdown.lua` — render-markdown.nvim: in-buffer markdown rendering (headings, lists, tables, code) on the markdown filetype; `<leader>md` toggles it

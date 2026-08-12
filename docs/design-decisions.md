@@ -49,7 +49,7 @@ Each entry is **Context → Decision → How → Trade-offs**.
 
 **Context.** The default JDK on the machine where this was decided was Corretto **25**, and the long-standing `fwcd/kotlin-language-server` crashes on JDK 25. (The current WSL machine runs SDKMAN's Temurin **21.0.12** — see `docs/deviations-from-main.md` — which is why the two documents name different JDKs. The decision stands either way: kotlin-lsp bundles its own runtime, so it is unaffected by whichever JDK is default.)
 
-**Decision.** Migrate to JetBrains' official **kotlin-lsp** (Mason package `kotlin-lsp`, binary `intellij-server`, lspconfig name `kotlin_lsp`), managed by [kotlin.nvim](https://github.com/AlexandrosAlexiou/kotlin.nvim) rather than mason-lspconfig's auto-enable (hence its entry in `automatic_enable = { exclude = ... }`, alongside `stylua`).
+**Decision.** Migrate to JetBrains' official **kotlin-lsp** (Mason package `kotlin-lsp`, binary `intellij-server`, lspconfig name `kotlin_lsp`), managed by [kotlin.nvim](https://github.com/AlexandrosAlexiou/kotlin.nvim) rather than mason-lspconfig's auto-enable (hence its entry in `automatic_enable = { exclude = ... }`, alongside `stylua` and `tailwindcss`).
 
 **How.** `lua/plugins/kotlin.lua` calls `require("kotlin").setup{...}`. The Mason binary is `intellij-server`, so `lsp.lua` overrides the cmd to `{ "intellij-server", "--stdio" }`.
 
@@ -244,6 +244,21 @@ This existed twice: `gitlab.lua` on the work machine, `github.lua` on the person
 - **Path shortening in the statusline.** lualine's built-in `shorting_target` is *window-relative* (only shortens when the path exceeds `winwidth − target`), so on a wide window deep paths never shortened. Replaced with an `fmt` that keeps the last two segments (`…/controller/ExerciseController.kt`) — predictable and meaningful for deep Java/Kotlin packages, unlike the built-in's single-letter initials.
 - **`winborder = "rounded"`.** One global option borders all LSP floats (hover, signature help, diagnostics) consistently; nvim-cmp sets its own border so it doesn't double up.
 - **nvim-tree fixed `width = 40`.** Dynamic/adaptive resizing left stale-cell redraw artifacts at the tree's right edge; a fixed width eliminates them.
+
+---
+
+## LSP load-status indicator in the statusline
+
+**Context.** With slow servers (kotlin-lsp, jdtls) it's easy to lose track of whether the language server for the current file is actually up — an expired kotlin-lsp attaches *nothing* (see the readme's Troubleshooting), and even a healthy server is unusable while it indexes. A glyph beside the filetype answers "is the LSP ready?" at a glance.
+
+**Decision.** `lua/tajbanana/lsp_status.lua` renders one icon in lualine's `lualine_x` next to the filetype: **✓** ready, **⟳** loading, **✗** expected-but-not-attached, **○** no server for this filetype, blank for no filetype.
+
+**How.**
+- **✓ waits on work-done progress, not on attach.** The icon does *not* flip to ✓ the instant the client attaches — it withholds ✓ until every `$/progress` token the server opened has ended. So a server that indexes on open (kotlin-lsp, jdtls) shows `✗ → ⟳ → ✓`, and a dead/expired one stays ✗. A server that emits no progress is treated as ready on attach (it has no async load phase to report). An `LspProgress` autocmd tracks open tokens per client and refreshes lualine; `LspAttach`/`LspDetach` do too.
+- **One primary server per filetype, keyed by filetype not client name.** A `PRIMARY` table maps each filetype to the single server that *is* that language; every other client attached to the buffer is ignored. It has to be per-filetype, not a name-based ignore list, because `graphql` is auxiliary on a `.tsx` buffer (which also draws ts_ls + eslint + graphql) but the *primary* server on a real `.graphql` file. Counting the extras made the icon flip to ✓ the moment one of them settled and back to ⟳ while the real server was still indexing — the reported bug that drove this design.
+- **rust is claimed only when a toolchain is present**, mirroring the conditional `rust_analyzer` enable in `lsp.lua`, so a Rust-less machine doesn't show a red ✗ on every `.rs` file.
+
+**Trade-offs.** The `PRIMARY` table must be kept in sync with `ensure_installed` in `lsp.lua` when a language is added. "Finished loading" is inferred from work-done progress, so a server that never emits progress shows ✓ on attach — correct for servers with no async index phase, but it can't distinguish "ready" from "silently still working" for one that indexes without reporting (kotlin-lsp and jdtls both report, so the headline cases are covered). The decision is a pure `_classify(ft, clients)` function, unit-tested against the multi-client cases.
 
 ---
 

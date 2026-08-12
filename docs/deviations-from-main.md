@@ -33,6 +33,15 @@ in [A1](#a1-gitlab--github-port).
 **Status:** committed on `windows-config` as `2536588`
 (*feat(git): port the forge shortcuts from GitLab to GitHub*).
 
+**Superseded (2026-08-12).** `github.lua` was later renamed to
+`lua/tajbanana/forge.lua` and generalised to detect the forge (GitHub *or*
+GitLab) per buffer from the remote host — commit `cc0b281`
+(*refactor(forge): detect the forge from the remote and add platform detection*).
+So the `github.lua` file names and the "To reverse this" recipe below describe
+the **original port only**: a GitLab remote is now handled automatically, so no
+per-machine reversal is needed. See the "Forge shortcuts" section in
+[design-decisions.md](design-decisions.md).
+
 **Why.** This is a personal machine with no access to `gitlab.thalesdigital.io`
 and no reason to acquire it — work and personal identities are deliberately kept
 apart here. Every remote reachable from this box is GitHub, so the GitLab module
@@ -240,7 +249,7 @@ the command shown is the Homebrew one they would have used on macOS.
 | **java** | a JDK | **SDKMAN** + Temurin **21.0.12** | jdtls needs 21+. Kotlin's kotlin-lsp bundles its own runtime and needs none. |
 | **go** | `brew install go` | `apt install golang-go` (1.24.4) | Mason builds gopls via `go install`; without a toolchain it fails with "cannot find go in path". |
 | **ruff** | `python3 + ruff` | `uv tool install ruff` (0.16.1) | `pip3` isn't installed; `uv` (also in `~/.local`) avoids needing it or a venv. |
-| **gh** | `brew install gh` | GitHub release tarball → `~/.local` (2.97.0) | apt has **2.46** (early 2024). Needed by the new `github.lua` fast path. |
+| **gh** | `brew install gh` | GitHub release tarball → `~/.local` (2.97.0) | apt has **2.46** (early 2024). Needed by `forge.lua`'s `<leader>gm` fast path. |
 | **glab** | `brew install glab` | **not installed** | Superseded by the GitHub port (A1). |
 | **Nerd Font** | `brew install --cask …` | installed on the **Windows** side | WSL has no font rendering; the Windows terminal draws the glyphs. Nothing inside WSL can fix garbled icons. |
 
@@ -332,7 +341,6 @@ WSL box — and because installing it had a side effect, recorded at the end.
 Before the fix, yanking put nothing on the Windows clipboard. The config was
 **not** at fault — `lua/tajbanana/set.lua` sets `clipboard:append("unnamedplus")`,
 which correctly routes `y` to the `+` register. The gap was that nvim never talks
-**not** at fault — `lua/tajbanana/set.lua` sets `clipboard:append("unnamedplus")`,
 to the OS clipboard itself; it shells out to a helper binary, and none of the
 ones it probes existed on this box:
 

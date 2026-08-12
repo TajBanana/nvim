@@ -3,6 +3,38 @@
 Notable changes to this Neovim configuration, newest first. Dates are taken
 from git history; entries before 2026 are reconstructed from commit messages.
 
+## 2026-08-12 — LSP load-status indicator, forge auto-detection
+
+### Added
+- **Per-language LSP load-status indicator** in the lualine statusline
+  (`lua/tajbanana/lsp_status.lua`), shown beside the filetype: ✓ green (the
+  file's language server has attached *and finished loading* — it waits on LSP
+  work-done `$/progress`), ⟳ yellow (attached but still indexing), ✗ red (a
+  server is expected for the filetype but none has attached, e.g. an expired
+  kotlin-lsp), ○ grey (no server for this filetype), blank (no filetype). Only
+  each filetype's primary server counts — a `.tsx` buffer draws ts_ls, eslint
+  and graphql, but the indicator tracks ts_ls — so an auxiliary client settling
+  can't make it flicker.
+
+### Changed
+- **Forge shortcuts auto-detect the forge from the remote** (`github.lua` →
+  `lua/tajbanana/forge.lua`). `<leader>gm` / `<leader>gl` now choose GitHub vs
+  GitLab URL shapes per buffer from the remote host — including self-hosted
+  instances — so one config serves a GitHub checkout and a GitLab checkout on
+  the same machine with no per-machine branch. This supersedes the 2026-08-04
+  `gitlab.lua` → `github.lua` port below. New `lua/tajbanana/platform.lua`
+  centralises mac/wsl/linux/windows detection.
+- **`<leader>go` picks the launcher per platform** and reports failures: `open`
+  on macOS, `explorer.exe` (with a `wslpath -w` path) on WSL, `xdg-open` on
+  Linux — chosen explicitly rather than through `vim.ui.open`, whose preference
+  order silently broke `<leader>go` on WSL once `xdg-utils` landed on `PATH`. A
+  non-zero exit now surfaces as an error toast (WSL exempt — `explorer.exe`
+  returns 1 even on success).
+
+### Fixed
+- A batch of highest-severity code-review findings across the editor, git,
+  diagnostics and filetype handling (see `docs/reviews/`).
+
 ## 2026-08-04 — GitHub port, cross-platform WezTerm, audit fixes
 
 ### Added
