@@ -1,0 +1,11 @@
+-- Manage lazy.nvim as a pinned plugin.
+--
+-- `pin = true` keeps `:Lazy update` / `:Lazy sync` from bumping lazy.nvim along
+-- with everything else -- that side-effect bump is what silently drifts
+-- lazy-lock.json off its committed commit and leaves a dirty working tree. The
+-- version is instead enforced by the lockfile: the bootstrap in init.lua checks
+-- a fresh clone out at the recorded commit.
+--
+-- To upgrade lazy.nvim deliberately: drop this `pin`, run `:Lazy update`, re-add
+-- it, and commit the new lazy-lock.json.
+return { "folke/lazy.nvim", pin = true }
