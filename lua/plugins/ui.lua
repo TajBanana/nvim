@@ -45,7 +45,25 @@ return {
                 lualine_c = {},
                 -- %S renders the pending-keystroke display here (cmdheight=0 +
                 -- showcmdloc="statusline"), so the keys you press show in this row
-                lualine_x = { "%S", "encoding", "fileformat", "filetype" },
+                lualine_x = {
+                    "%S",
+                    "encoding",
+                    "fileformat",
+                    "filetype",
+                    {
+                        -- LSP load status beside the filetype: a check once a
+                        -- language server attaches, a red X while one is expected
+                        -- but absent (an expired kotlin-lsp stays X). Wrapped in
+                        -- functions so tajbanana.lsp_status is required at render
+                        -- time, keeping lualine's lazy-load intact.
+                        function()
+                            return require("tajbanana.lsp_status").component()
+                        end,
+                        color = function()
+                            return require("tajbanana.lsp_status").color()
+                        end,
+                    },
+                },
             },
         },
     },
