@@ -19,7 +19,7 @@ config.font = wezterm.font_with_fallback({
     "Symbols Nerd Font Mono",
 })
 -- The Windows display runs at a different scale; 16pt there is oversized.
-config.font_size = is_windows and 12.0 or 16.0
+config.font_size = is_windows and 12.0 or 15.0
 config.line_height = 1.2
 config.initial_rows = 48
 config.initial_cols = 160
