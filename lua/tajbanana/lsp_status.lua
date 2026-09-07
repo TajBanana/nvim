@@ -203,9 +203,8 @@ local function detect_expiry(bufnr)
             expiry_notified = true
             vim.notify(
                 "kotlin-lsp build has EXPIRED — go-to-definition/hover are dead.\n"
-                    .. "Install a newer intellij-server build (self-managed at "
-                    .. "~/.local/share/kotlin-lsp/current, or via Mason once its "
-                    .. "registry catches up).",
+                    .. "Run :KotlinLspUpdate to fetch the latest build "
+                    .. "(details in the readme's Troubleshooting section).",
                 vim.log.levels.ERROR,
                 { title = "kotlin-lsp expired" }
             )
