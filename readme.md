@@ -279,7 +279,9 @@ curl -s https://open-vsx.org/api/JetBrains/kotlin-server \
 
 That prints the newest *extension* version; its bundled **server** build is named in `server-bundle.json` (step 1 below). For a human-readable list there's `https://open-vsx.org/extension/JetBrains/kotlin-server` and `https://github.com/Kotlin/kotlin-lsp/releases`, but the GitHub releases lag — treat the Open VSX API as the source of truth. If your installed build already equals the latest and it's *still* expired, JetBrains simply hasn't shipped a newer one yet.
 
-**To update to a fresh build:**
+**Easiest — `:KotlinLspUpdate`.** In any Kotlin session, run `:KotlinLspUpdate`. It runs `scripts/update-kotlin-lsp.sh` — discover the latest build via Open VSX, download + sha256-verify it, repoint `current` — then reattaches the server in place (no nvim restart). It's idempotent (a no-op when you're already current) and also performs the first-time install. The manual steps below are exactly what it automates, for doing it by hand or on a machine without this config:
+
+**To update to a fresh build (manually):**
 
 1. **Find the newest build.** JetBrains' GitHub *releases* and Mason both lag; their **Open VSX `kotlin-server` extension** pins the current build first. Ask the registry for the latest extension version, then read the `server-bundle.json` inside its platform `.vsix` — the `.vsix` is a small zip that *references* the server rather than bundling it, and `server-bundle.json` names the build number, the `.sit` download URL, and its sha256:
    ```sh
