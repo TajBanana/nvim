@@ -28,9 +28,10 @@ from git history; entries before 2026 are reconstructed from commit messages.
   refresh. The script discovers the latest build from the Open VSX `kotlin-server`
   extension's `server-bundle.json`, downloads + sha256-verifies it, extracts,
   repoints the `current` symlink, and prunes old builds; it is idempotent and
-  platform-aware (darwin/linux × arm64/x64). The command runs it asynchronously
-  and reattaches the server in place. Upkeep on the ~monthly expiry is now: see
-  ⏱ → run one command.
+  platform-aware (darwin/linux × arm64/x64). The command runs it asynchronously,
+  streams download progress (phase + live byte %) to a fidget bar, and reattaches
+  the server in place. Upkeep on the ~monthly expiry is now: see ⏱ → run one
+  command.
 
 ## 2026-08-12 — LSP load-status indicator, forge auto-detection
 
