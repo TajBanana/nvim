@@ -3,6 +3,27 @@
 Notable changes to this Neovim configuration, newest first. Dates are taken
 from git history; entries before 2026 are reconstructed from commit messages.
 
+## 2026-09-07 — Self-managed kotlin-lsp + expiry indicator
+
+### Changed
+- **kotlin-lsp is now self-managed, not Mason-installed.** Removed `kotlin_lsp`
+  from `ensure_installed` in `lua/plugins/lsp.lua`. The JetBrains `intellij-server`
+  is a time-bombed EAP build that expires ~monthly, and Mason's registry trails
+  JetBrains by weeks — reinstalling through Mason often just re-fetches the same
+  expired build. `lua/plugins/kotlin.lua` now points kotlin.nvim's `KOTLIN_LSP_DIR`
+  fallback at `~/.local/share/kotlin-lsp/current` (a symlink to the versioned
+  build) when that path exists; refreshing on expiry is a download plus one
+  symlink repoint, no config change. See `docs/design-decisions.md` for the build-
+  discovery trick (Open VSX `kotlin-server` extension → `server-bundle.json`).
+
+### Added
+- **⏱ "expired" state in the statusline LSP indicator**
+  (`lua/tajbanana/lsp_status.lua`). A Kotlin buffer with no `kotlin_lsp` client
+  ~10s after opening triggers a scan of the LSP log tail for `intellij-server has
+  expired`; on a hit the indicator shows a red ⏱ (instead of the generic ✗) and a
+  one-shot notification fires pointing at the refresh procedure. It self-heals to
+  ✓/⟳ once a live build attaches. Unit-tested headless.
+
 ## 2026-08-12 — LSP load-status indicator, forge auto-detection
 
 ### Added

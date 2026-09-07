@@ -41,7 +41,13 @@ return {
                     "jsonls",
                     "tailwindcss",
                     "yamlls",
-                    "kotlin_lsp",
+                    -- kotlin_lsp is intentionally NOT ensure_installed: the
+                    -- JetBrains intellij-server ships as a time-bombed EAP build
+                    -- that expires ~monthly, and Mason's registry trails JetBrains
+                    -- by weeks -- often it can only reinstall an already-expired
+                    -- build. It is self-managed instead (see kotlin.lua's
+                    -- KOTLIN_LSP_DIR); kotlin.nvim still enables it, and the
+                    -- statusline shows a ⏱ when the build has expired.
                     "dockerls",
                     "cssls",
                     "graphql",

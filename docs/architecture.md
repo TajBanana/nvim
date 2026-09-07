@@ -49,7 +49,7 @@ Each keeps a single concern out of `set.lua`; `set.lua` (or a plugin) calls its
 - `repo_diagnostics.lua` — repo-wide lint (`<leader>xr`).
 - `definition_picker.lua` — the `<leader>gd` def/type/impl/ref picker (wired from `lsp.lua`).
 - `inlay_tint.lua` — per-kind inlay-hint colouring (wired from `lsp.lua`).
-- `lsp_status.lua` — per-filetype LSP load-status icon in the lualine statusline (wired from `ui.lua`).
+- `lsp_status.lua` — per-filetype LSP load-status icon in the lualine statusline (wired from `ui.lua`); includes a kotlin-only ⏱ state that detects an expired kotlin-lsp build from the LSP log.
 
 ## Conventions
 
