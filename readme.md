@@ -254,7 +254,7 @@ Put the cursor on any token and run `:Inspect` to see its Treesitter/LSP highlig
 
 ## Troubleshooting
 
-**Kotlin: `Space gd`, hover, and completion silently stop working — nothing attaches.** The JetBrains `intellij-server` binary behind kotlin-lsp is a time-limited **EAP build that expires roughly monthly**. Once it lapses it still launches, prints an expiry notice, and exits *before* initializing — so the client never attaches and none of the `LspAttach` keymaps (`Space gd` among them) ever bind. You get two tells: the statusline shows a red **⏱** beside the `kotlin` filetype (instead of the usual ✗) and, ~10s after opening a Kotlin file, a Telescope popup asks whether to update — pick **Update now** and it runs `:KotlinLspUpdate` for you (see below). Confirm the cause in `:LspLog` (or `~/.local/state/nvim/lsp.log`):
+**Kotlin: `Space gd`, hover, and completion silently stop working — nothing attaches.** The JetBrains `intellij-server` binary behind kotlin-lsp is a time-limited **EAP build that expires roughly monthly**. Once it lapses it still launches, prints an expiry notice, and exits *before* initializing — so the client never attaches and none of the `LspAttach` keymaps (`Space gd` among them) ever bind. You get two tells: the statusline shows a red **⏱** beside the `kotlin` filetype (instead of the usual ✗) and, ~10s after opening a Kotlin file, a small floating prompt asks whether to update — press **`y`** and it runs `:KotlinLspUpdate` for you (see below). Confirm the cause in `:LspLog` (or `~/.local/state/nvim/lsp.log`):
 
 ```
 Client kotlin_lsp quit with exit code 7 ...
