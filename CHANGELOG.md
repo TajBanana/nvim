@@ -21,8 +21,9 @@ from git history; entries before 2026 are reconstructed from commit messages.
   (`lua/tajbanana/lsp_status.lua`). A Kotlin buffer with no `kotlin_lsp` client
   ~10s after opening triggers a scan of the LSP log tail for `intellij-server has
   expired`; on a hit the indicator shows a red ⏱ (instead of the generic ✗) and a
-  one-shot notification fires pointing at `:KotlinLspUpdate`. It self-heals to
-  ✓/⟳ once a live build attaches. Unit-tested headless.
+  one-shot Telescope prompt (via `vim.ui.select`) offers to run
+  `:KotlinLspUpdate` right then. It self-heals to ✓/⟳ once a live build attaches.
+  Unit-tested headless.
 - **`:KotlinLspUpdate` command + `scripts/update-kotlin-lsp.sh`** to automate the
   refresh. The script discovers the latest build from the Open VSX `kotlin-server`
   extension's `server-bundle.json`, downloads + sha256-verifies it, extracts,

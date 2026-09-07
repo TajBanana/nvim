@@ -13,9 +13,10 @@
 -- has expired" to stderr and dies before attaching, so the generic signal is just
 -- a plain ✗. To make the *reason* legible, a Kotlin buffer that has no kotlin_lsp
 -- client ~10s after opening triggers a scan of the LSP log tail; if the expiry
--- message is there, the icon becomes ⏱ and a one-shot error notification fires
--- telling you to install a newer build. It self-heals to ✓/⟳ once a live build
--- attaches. This only fires for kotlin because it is the only expiring server.
+-- message is there, the icon becomes ⏱ and a one-shot Telescope prompt asks
+-- whether to update (running :KotlinLspUpdate on "Update now"). It self-heals to
+-- ✓/⟳ once a live build attaches. This only fires for kotlin because it is the
+-- only expiring server.
 --
 -- "Finished loading" is detected from LSP work-done progress ($/progress): a
 -- server that is still indexing keeps a progress token open, so ✓ is withheld
@@ -171,7 +172,7 @@ local function kotlin_attached(bufnr)
     return false
 end
 
-local expiry_notified = false
+local expiry_prompted = false
 
 -- Called ~10s after a Kotlin buffer opens. A healthy build attaches its client
 -- within a few seconds (indexing/import happens *after* attach), so if none has
@@ -199,15 +200,20 @@ local function detect_expiry(bufnr)
         pcall(function()
             require("lualine").refresh()
         end)
-        if not expiry_notified then
-            expiry_notified = true
-            vim.notify(
-                "kotlin-lsp build has EXPIRED — go-to-definition/hover are dead.\n"
-                    .. "Run :KotlinLspUpdate to fetch the latest build "
-                    .. "(details in the readme's Troubleshooting section).",
-                vim.log.levels.ERROR,
-                { title = "kotlin-lsp expired" }
-            )
+        if not expiry_prompted then
+            expiry_prompted = true
+            -- Offer to fix it right here. vim.ui.select routes through
+            -- telescope-ui-select in this config (see plugins/telescope.lua), so
+            -- this shows as a Telescope popup; on "Update now" it runs the
+            -- :KotlinLspUpdate command, which fetches the latest build and
+            -- reattaches. Dismissing (Esc -> nil) does nothing.
+            vim.ui.select({ "Update now", "Not now" }, {
+                prompt = "kotlin-lsp build expired (LSP is dead) — update to the latest build?",
+            }, function(choice)
+                if choice == "Update now" then
+                    vim.cmd("KotlinLspUpdate")
+                end
+            end)
         end
     end
 end
