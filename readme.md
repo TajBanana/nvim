@@ -261,13 +261,47 @@ Client kotlin_lsp quit with exit code 7 ...
 "stderr"    "This build of intellij-server has expired. The IDE will now close."
 ```
 
-**`:MasonInstall kotlin-lsp` does _not_ fix this.** Mason's registry trails JetBrains by weeks and usually only re-offers the same expired build. kotlin-lsp is therefore **self-managed** outside Mason: the current build lives at `~/.local/share/kotlin-lsp/current` — a symlink `kotlin.nvim` follows via its `KOTLIN_LSP_DIR` fallback (wired in `lua/plugins/kotlin.lua`). To update to a fresh build:
+**`:MasonInstall kotlin-lsp` does _not_ fix this.** Mason's registry trails JetBrains by weeks and usually only re-offers the same expired build. kotlin-lsp is therefore **self-managed** outside Mason: the current build lives at `~/.local/share/kotlin-lsp/current` — a symlink `kotlin.nvim` follows via its `KOTLIN_LSP_DIR` fallback (wired in `lua/plugins/kotlin.lua`).
 
-1. **Find the newest build.** JetBrains' GitHub *releases* lag, but their **Open VSX `kotlin-server` extension** pins the current build first. Check `https://open-vsx.org/api/JetBrains/kotlin-server` for the latest extension version, download that version's `.vsix` (it is a zip), and read `extension/server-bundle.json` inside — it names the build number, the `.sit` download URL, and its sha256.
-2. **Download + extract** the `.sit` (also a zip; on macOS `ditto -x -k <file> <dest>`) into `~/.local/share/kotlin-lsp/`.
-3. **Repoint the symlink** and restart Neovim — this is the whole fix once the build is on disk:
+**Checking versions.** The build you currently have installed:
+
+```sh
+readlink ~/.local/share/kotlin-lsp/current        # -> …/kotlin-server-<build>
+cat ~/.local/share/kotlin-lsp/current/build.txt    # -> LS-<build>
+```
+
+(`:LspInfo` on a Kotlin buffer also shows the launch path, which contains the build number.) The latest build JetBrains has published — check the **Open VSX registry API**, which updates before their GitHub releases:
+
+```sh
+curl -s https://open-vsx.org/api/JetBrains/kotlin-server \
+  | python3 -c 'import sys,json;print(json.load(sys.stdin)["version"])'
+```
+
+That prints the newest *extension* version; its bundled **server** build is named in `server-bundle.json` (step 1 below). For a human-readable list there's `https://open-vsx.org/extension/JetBrains/kotlin-server` and `https://github.com/Kotlin/kotlin-lsp/releases`, but the GitHub releases lag — treat the Open VSX API as the source of truth. If your installed build already equals the latest and it's *still* expired, JetBrains simply hasn't shipped a newer one yet.
+
+**To update to a fresh build:**
+
+1. **Find the newest build.** JetBrains' GitHub *releases* and Mason both lag; their **Open VSX `kotlin-server` extension** pins the current build first. Ask the registry for the latest extension version, then read the `server-bundle.json` inside its platform `.vsix` — the `.vsix` is a small zip that *references* the server rather than bundling it, and `server-bundle.json` names the build number, the `.sit` download URL, and its sha256:
+   ```sh
+   # latest extension version:
+   curl -s https://open-vsx.org/api/JetBrains/kotlin-server \
+     | python3 -c 'import sys,json;print(json.load(sys.stdin)["version"])'
+   # read that version's bundle manifest (darwin-arm64 shown; x64 drops "-aarch64"):
+   V=<version-from-above>
+   curl -sL "https://open-vsx.org/api/JetBrains/kotlin-server/darwin-arm64/$V/file/JetBrains.kotlin-server-$V@darwin-arm64.vsix" -o /tmp/k.vsix
+   unzip -p /tmp/k.vsix extension/server-bundle.json
    ```
-   ln -sfn ~/.local/share/kotlin-lsp/kotlin-server-<new> ~/.local/share/kotlin-lsp/current
+2. **Download, verify, and extract** the `.sit` (it is a zip, *not* a tarball) into `~/.local/share/kotlin-lsp/`, using the build number, URL, and sha256 from the manifest:
+   ```sh
+   B=<build-from-bundle>            # e.g. 263.4421.0
+   curl -L -o /tmp/kls.sit "https://download-cdn.jetbrains.com/language-server/kotlin-server/$B/kotlin-server-$B-aarch64.sit"
+   echo "<sha256-from-bundle>  /tmp/kls.sit" | shasum -a 256 -c -    # must print: /tmp/kls.sit: OK
+   mkdir -p ~/.local/share/kotlin-lsp
+   ditto -x -k /tmp/kls.sit ~/.local/share/kotlin-lsp/              # or: unzip -q /tmp/kls.sit -d ~/.local/share/kotlin-lsp/
+   ```
+3. **Repoint the symlink** and restart Neovim — the whole fix once the build is on disk:
+   ```sh
+   ln -sfn ~/.local/share/kotlin-lsp/kotlin-server-$B ~/.local/share/kotlin-lsp/current
    ```
 
 **First time only** (fresh clone or new machine): the three steps above *are* the
