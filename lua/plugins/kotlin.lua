@@ -35,6 +35,7 @@ return {
         -- Open VSX kotlin-server extension, downloads + sha256-verifies it, and
         -- repoints ~/.local/share/kotlin-lsp/current), then reattaches. The script
         -- is idempotent, so running it when already current is a harmless no-op.
+        -- Download progress (phases + curl's byte %) streams to a fidget bar.
         -- Run this when the statusline shows ⏱.
         vim.api.nvim_create_user_command("KotlinLspUpdate", function()
             local script = vim.fn.stdpath("config") .. "/scripts/update-kotlin-lsp.sh"
@@ -42,30 +43,100 @@ return {
                 vim.notify("KotlinLspUpdate: missing " .. script, vim.log.levels.ERROR)
                 return
             end
-            vim.notify("kotlin-lsp: checking for a newer build…", vim.log.levels.INFO, { title = "KotlinLspUpdate" })
-            vim.system({ "bash", script }, { text = true }, function(res)
+            -- Progress via fidget. It lazy-loads on LspAttach, which may not have
+            -- happened when the server is dead/expired, so force it loaded first;
+            -- fall back to plain notifications if it is somehow unavailable.
+            pcall(function()
+                require("lazy").load({ plugins = { "fidget.nvim" } })
+            end)
+            local ok_fidget, fidget = pcall(require, "fidget.progress")
+            local handle
+            if ok_fidget then
+                handle = fidget.handle.create({
+                    title = "kotlin-lsp",
+                    message = "checking for a newer build…",
+                    lsp_client = { name = "kotlin-lsp update" },
+                    percentage = 0,
+                })
+            else
+                vim.notify("kotlin-lsp: checking for a newer build…", vim.log.levels.INFO, { title = "KotlinLspUpdate" })
+            end
+
+            local out_chunks, err_chunks = {}, {}
+            local last_pct = -1
+            local function report(props)
+                vim.schedule(function()
+                    if handle then
+                        handle:report(props)
+                    end
+                end)
+            end
+
+            vim.system({ "bash", script }, {
+                text = true,
+                -- The script prints "· downloading/verifying/extracting" phase lines
+                -- to stdout; curl --progress-bar writes "…  42.1%" to stderr.
+                stdout = function(_, data)
+                    if not data then
+                        return
+                    end
+                    out_chunks[#out_chunks + 1] = data
+                    for line in data:gmatch("[^\r\n]+") do
+                        local phase = line:match("^·%s+(%a+)")
+                        if phase then
+                            report({ message = phase .. "…" })
+                        end
+                    end
+                end,
+                stderr = function(_, data)
+                    if not data then
+                        return
+                    end
+                    err_chunks[#err_chunks + 1] = data
+                    local latest
+                    for pct in data:gmatch("(%d+%.?%d*)%%") do
+                        latest = pct
+                    end
+                    if latest then
+                        local p = math.floor(tonumber(latest) + 0.5)
+                        if p ~= last_pct then
+                            last_pct = p
+                            report({ message = "downloading…", percentage = p })
+                        end
+                    end
+                end,
+            }, function(res)
+                local out = table.concat(out_chunks)
                 vim.schedule(function()
                     if res.code ~= 0 then
+                        if handle then
+                            handle:cancel()
+                        end
+                        local err = vim.trim(out .. "\n" .. table.concat(err_chunks))
                         vim.notify(
-                            "kotlin-lsp update failed:\n" .. vim.trim((res.stdout or "") .. (res.stderr or "")),
+                            "kotlin-lsp update failed:\n" .. err:sub(-800),
                             vim.log.levels.ERROR,
                             { title = "KotlinLspUpdate" }
                         )
                         return
                     end
-                    local build = (res.stdout or ""):match("kotlin%-server%-([%w.]+)") or "?"
+                    local build = out:match("kotlin%-server%-([%w.]+)") or "?"
                     -- Point the resolver at the (now-present) self-managed dir, in
                     -- case it did not exist when this config first ran.
                     local cur = vim.fn.expand("~/.local/share/kotlin-lsp/current")
                     if vim.uv.fs_stat(cur) then
                         vim.env.KOTLIN_LSP_DIR = cur
                     end
-                    if (res.stdout or ""):match("UP%-TO%-DATE") then
-                        vim.notify(
-                            "kotlin-lsp already current (" .. build .. ")",
-                            vim.log.levels.INFO,
-                            { title = "KotlinLspUpdate" }
-                        )
+                    local function finish(msg)
+                        if handle then
+                            handle:report({ message = msg, percentage = 100 })
+                            handle:finish()
+                        else
+                            vim.notify("kotlin-lsp: " .. msg, vim.log.levels.INFO, { title = "KotlinLspUpdate" })
+                        end
+                    end
+                    if out:match("UP%-TO%-DATE") then
+                        finish("already current (" .. build .. ")")
                         return
                     end
                     -- Updated: clear the expiry flag and reattach on Kotlin buffers.
@@ -84,11 +155,7 @@ return {
                             end
                         end
                     end, 1500)
-                    vim.notify(
-                        "kotlin-lsp updated to " .. build .. " — reattaching (restart nvim if it doesn't).",
-                        vim.log.levels.INFO,
-                        { title = "KotlinLspUpdate" }
-                    )
+                    finish("updated to " .. build .. " — reattaching")
                 end)
             end)
         end, { desc = "Update self-managed kotlin-lsp to the latest build and reattach" })

@@ -68,8 +68,11 @@ if [ "$have" = "kotlin-server-$build" ]; then
 fi
 echo "updating: ${have:-<none>} -> kotlin-server-$build (extension $ext_ver)"
 
-# Download + verify.
-curl -fL "$url" -o "$tmp/$archive"
+# Download + verify. --progress-bar writes "###  42.1%" to stderr; the :KotlinLspUpdate
+# command streams that to a fidget progress bar (harmless noise in a manual run).
+echo "· downloading $archive"
+curl -fL --progress-bar "$url" -o "$tmp/$archive"
+echo "· verifying checksum"
 if command -v shasum >/dev/null 2>&1; then
     calc="$(shasum -a 256 "$tmp/$archive" | awk '{print $1}')"
 else
@@ -82,6 +85,7 @@ fi
 
 # Extract (.sit is a zip; linux ships .tar.gz). The archive root is
 # kotlin-server-<build>/.
+echo "· extracting"
 mkdir -p "$tmp/x"
 case "$archive" in
     *.tar.gz | *.tgz) tar -xzf "$tmp/$archive" -C "$tmp/x" ;;
