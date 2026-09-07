@@ -33,6 +33,15 @@ from git history; entries before 2026 are reconstructed from commit messages.
   the server in place. Upkeep on the ~monthly expiry is now: see ⏱ → run one
   command.
 
+### Fixed
+- **Statusline no longer repaints on every LSP progress event.** The `LspProgress`
+  handler now refreshes lualine only on `begin`/`end` (the state transitions that
+  change the icon), not on the frequent `report` events — which previously
+  repainted the statusline dozens of times a second while a server indexed.
+- **The expiry prompt no longer steals keystrokes mid-edit.** It fires only in
+  normal mode (retrying briefly otherwise), so the focus-grabbing float can't
+  swallow characters typed while you're in insert/visual.
+
 ## 2026-08-12 — LSP load-status indicator, forge auto-detection
 
 ### Added
