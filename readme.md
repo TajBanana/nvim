@@ -159,7 +159,7 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 
 **Inlay hints** show inferred types and parameter names inline (IntelliJ-style). They're on by default wherever the language server supports them — **TS/TSX/JS, Lua, Go, Rust, Kotlin, Java** — and toggle per buffer with `Space ti`. Python (pyright) and Bash (bashls) don't provide them.
 
-**LSP status in the statusline.** Beside the filetype, the statusline shows whether the language server for the current file is up: **✓** (green) once the server has attached *and finished loading*, **⟳** (yellow) while it's still indexing, **✗** (red) when a server is expected but hasn't attached (e.g. an expired kotlin-lsp — see [Troubleshooting](#troubleshooting)), and **○** (grey) for filetypes with no configured server. It waits on LSP work-done progress, so `✓` means genuinely ready rather than merely attached — a slow server like Kotlin or Java reads `✗ → ⟳ → ✓`. Only each filetype's primary server counts (a `.tsx` buffer draws ts_ls, eslint and graphql; the indicator tracks ts_ls), so secondary clients can't make it flicker. Lives in `lua/tajbanana/lsp_status.lua`; add a language by extending the `PRIMARY` table there to match `ensure_installed`.
+**LSP status in the statusline.** Beside the filetype, the statusline shows whether the language server for the current file is up: **✓** (green) once the server has attached *and finished loading*, **⟳** (yellow) while it's still indexing, **✗** (red) when a server is expected but hasn't attached, **⏱** (red) for the specific case of an expired kotlin-lsp build (see [Troubleshooting](#troubleshooting)), and **○** (grey) for filetypes with no configured server. It waits on LSP work-done progress, so `✓` means genuinely ready rather than merely attached — a slow server like Kotlin or Java reads `✗ → ⟳ → ✓`. Only each filetype's primary server counts (a `.tsx` buffer draws ts_ls, eslint and graphql; the indicator tracks ts_ls), so secondary clients can't make it flicker. Lives in `lua/tajbanana/lsp_status.lua`; add a language by extending the `PRIMARY` table there to match `ensure_installed`.
 
 **The `Space gd` picker** merges definition, type-definition, implementation, and references into one Telescope list, tagged and color-coded (`[def]` `[type]` `[impl]` `[ref]`). Type any of those words in the prompt to filter. It queries every attached language server, so it works even in buffers with several (e.g. a `.tsx` with ts_ls + eslint + graphql).
 
@@ -240,7 +240,7 @@ If `Space go` ever does nothing on Linux, run `xdg-open <file>` in a shell: exit
 
 ## LSP servers and formatters
 
-LSP servers are listed in `ensure_installed` in `lua/plugins/lsp.lua` and installed automatically by Mason. To add one, add it to that list; to install something manually, use `:Mason`. Per-server settings (inlay hints, etc.) also live in `lsp.lua`; Kotlin is managed separately by [kotlin.nvim](https://github.com/AlexandrosAlexiou/kotlin.nvim) in `lua/plugins/kotlin.lua`.
+LSP servers are listed in `ensure_installed` in `lua/plugins/lsp.lua` and installed automatically by Mason. To add one, add it to that list; to install something manually, use `:Mason`. Per-server settings (inlay hints, etc.) also live in `lsp.lua`. **Kotlin is the one exception:** it is managed by [kotlin.nvim](https://github.com/AlexandrosAlexiou/kotlin.nvim) in `lua/plugins/kotlin.lua` and is deliberately **not** in `ensure_installed` — its `intellij-server` is a time-bombed build that expires monthly and Mason's registry lags JetBrains, so it is self-managed at `~/.local/share/kotlin-lsp/current` via `KOTLIN_LSP_DIR` (see [Troubleshooting](#troubleshooting) for how to refresh it).
 
 Node-based servers need `node` on PATH — since nvm is often lazy-loaded (so `node` isn't on PATH at startup), `set.lua` finds the newest nvm node and prepends it. The same fix is why `Space xr` and node-based formatters work.
 
@@ -254,26 +254,35 @@ Put the cursor on any token and run `:Inspect` to see its Treesitter/LSP highlig
 
 ## Troubleshooting
 
-**Kotlin: `Space gd`, hover, and completion silently stop working — nothing attaches.** The JetBrains `intellij-server` binary behind kotlin-lsp is a time-limited **EAP build that expires every few weeks**. Once it lapses it still launches, prints an expiry notice, and exits *before* initializing — so the client never attaches and none of the `LspAttach` keymaps (`Space gd` among them) ever bind. Confirm it in `:LspLog` (or `~/.local/state/nvim/lsp.log`):
+**Kotlin: `Space gd`, hover, and completion silently stop working — nothing attaches.** The JetBrains `intellij-server` binary behind kotlin-lsp is a time-limited **EAP build that expires roughly monthly**. Once it lapses it still launches, prints an expiry notice, and exits *before* initializing — so the client never attaches and none of the `LspAttach` keymaps (`Space gd` among them) ever bind. You get two tells: the statusline shows a red **⏱** beside the `kotlin` filetype (instead of the usual ✗) and an error notification fires on open. Confirm in `:LspLog` (or `~/.local/state/nvim/lsp.log`):
 
 ```
 Client kotlin_lsp quit with exit code 7 ...
 "stderr"    "This build of intellij-server has expired. The IDE will now close."
 ```
 
-Fix — pull a fresh build and restart Neovim:
+**`:MasonInstall kotlin-lsp` does _not_ fix this.** Mason's registry trails JetBrains by weeks and usually only re-offers the same expired build. kotlin-lsp is therefore **self-managed** outside Mason: the current build lives at `~/.local/share/kotlin-lsp/current` — a symlink `kotlin.nvim` follows via its `KOTLIN_LSP_DIR` fallback (wired in `lua/plugins/kotlin.lua`). To update to a fresh build:
 
-```
-:MasonInstall kotlin-lsp
-```
+1. **Find the newest build.** JetBrains' GitHub *releases* lag, but their **Open VSX `kotlin-server` extension** pins the current build first. Check `https://open-vsx.org/api/JetBrains/kotlin-server` for the latest extension version, download that version's `.vsix` (it is a zip), and read `extension/server-bundle.json` inside — it names the build number, the `.sit` download URL, and its sha256.
+2. **Download + extract** the `.sit` (also a zip; on macOS `ditto -x -k <file> <dest>`) into `~/.local/share/kotlin-lsp/`.
+3. **Repoint the symlink** and restart Neovim — this is the whole fix once the build is on disk:
+   ```
+   ln -sfn ~/.local/share/kotlin-lsp/kotlin-server-<new> ~/.local/share/kotlin-lsp/current
+   ```
 
-This **recurs**: when Kotlin features die out of nowhere again, it's almost always the same expiry, and the same one-liner fixes it. (Because `Space gd` is wired in the `LspAttach` autocmd in `lsp.lua`, *any* server that fails to attach takes its keymaps down with it — the same log check applies to other languages too.)
+**First time only** (fresh clone or new machine): the three steps above *are* the
+initial install — they create `~/.local/share/kotlin-lsp/` and the `current`
+symlink. Additionally run `:MasonUninstall kotlin-lsp` once, so `kotlin.nvim`
+resolves your self-managed dir instead of a leftover Mason copy (it probes
+`$MASON` first), then restart Neovim.
+
+This **recurs** every ~30 days; the ⏱ (or the exit-code-7 log line) is the tell. (Because `Space gd` is wired in the `LspAttach` autocmd in `lsp.lua`, *any* server that fails to attach takes its keymaps down with it — the same log check applies to other languages too.)
 
 **`:MasonInstall` / `:Mason` → `E492: Not an editor command`.** Mason is lazy-loaded, so its commands only exist once the LSP stack has loaded — which happens when you open a file (`BufReadPre`). On the no-file start screen they aren't registered yet. Open any file first, or force the load:
 
 ```
 :Lazy load nvim-lspconfig
-:MasonInstall kotlin-lsp
+:MasonInstall jdtls
 ```
 
 **Kotlin diagnostics never appear, even though the LSP is attached.** kotlin-lsp publishes **nothing on open** — it only analyses after the document changes. Measured: a correctly-attached client sat at zero diagnostics for **9 minutes**, then produced all of them the moment a single edit landed. So "wait longer" is the wrong remedy; type a character and delete it (`i`, space, `Backspace`, `Esc`) and they arrive within seconds. Confirm with `:lua =#vim.diagnostic.get(0)` before and after.

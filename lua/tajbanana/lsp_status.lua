@@ -4,8 +4,18 @@
 --   ✓ green   a server has attached AND finished loading (no in-flight work)
 --   ⟳ yellow  a server is attached but still working (indexing / initial load)
 --   ✗ red     a server is EXPECTED for this filetype but none has attached
+--   ⏱ red     kotlin only: the intellij-server build has EXPIRED (see below)
 --   ○ grey    a real filetype with no configured server
 --   (blank)   no filetype at all (special buffers, terminals, the file tree)
+--
+-- The ⏱ is a special case of ✗. kotlin-lsp is a time-bombed JetBrains EAP build
+-- that expires ~monthly; when it does, the server process prints "intellij-server
+-- has expired" to stderr and dies before attaching, so the generic signal is just
+-- a plain ✗. To make the *reason* legible, a Kotlin buffer that has no kotlin_lsp
+-- client ~10s after opening triggers a scan of the LSP log tail; if the expiry
+-- message is there, the icon becomes ⏱ and a one-shot error notification fires
+-- telling you to install a newer build. It self-heals to ✓/⟳ once a live build
+-- attaches. This only fires for kotlin because it is the only expiring server.
 --
 -- "Finished loading" is detected from LSP work-done progress ($/progress): a
 -- server that is still indexing keeps a progress token open, so ✓ is withheld
@@ -24,10 +34,12 @@ local M = {}
 local OK = "✓"
 local LOADING = "⟳"
 local BAD = "✗"
+local EXPIRED = "⏱"
 local NONE = "○"
 local OK_FG = "#C3E88D" -- md_green
 local LOADING_FG = "#FFCB6B" -- md_yellow
 local BAD_FG = "#F07178" -- md_red
+local EXPIRED_FG = "#F07178" -- md_red (same as bad; the ⏱ glyph carries the meaning)
 local NONE_FG = "#5c6370" -- muted comment grey
 
 -- The ONE language server that represents each filetype. The indicator tracks
@@ -128,7 +140,86 @@ local function state()
     return M._classify(vim.bo.filetype, clients)
 end
 
+-- Set true when kotlin-lsp is detected to have expired (see detect_expiry). It
+-- is a module-global rather than per-buffer because only one kotlin-lsp build
+-- exists machine-wide, so its expiry is a machine-wide fact.
+M._expired_kotlin = false
+
+-- Read up to `nbytes` from the end of a file without loading the whole thing --
+-- the LSP log grows into the megabytes and the expiry line, when present, is
+-- always among the most recent entries (it is the last thing a dying server
+-- writes). Returns "" if the file is missing/unreadable.
+local function log_tail(path, nbytes)
+    local fd = vim.uv.fs_open(path, "r", 438)
+    if not fd then
+        return ""
+    end
+    local st = vim.uv.fs_fstat(fd)
+    local size = st and st.size or 0
+    local off = math.max(0, size - nbytes)
+    local data = vim.uv.fs_read(fd, math.min(nbytes, size), off) or ""
+    vim.uv.fs_close(fd)
+    return data
+end
+
+local function kotlin_attached(bufnr)
+    for _, c in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+        if c.name == PRIMARY.kotlin then
+            return true
+        end
+    end
+    return false
+end
+
+local expiry_notified = false
+
+-- Called ~10s after a Kotlin buffer opens. A healthy build attaches its client
+-- within a few seconds (indexing/import happens *after* attach), so if none has
+-- attached by now the server likely died on startup. The one death worth calling
+-- out specifically is the time-bomb expiry, identified from the LSP log tail; any
+-- other failure stays a generic ✗. The attached-first check means a working build
+-- never reaches the scan, so a stale expiry line from an earlier session cannot
+-- produce a false positive.
+local function detect_expiry(bufnr)
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+        return
+    end
+    if kotlin_attached(bufnr) then
+        if M._expired_kotlin then
+            M._expired_kotlin = false -- self-heal once a live build attaches
+            pcall(function()
+                require("lualine").refresh()
+            end)
+        end
+        return
+    end
+    local tail = log_tail(vim.lsp.get_log_path(), 65536)
+    if tail:find("intellij-server has expired", 1, true) then
+        M._expired_kotlin = true
+        pcall(function()
+            require("lualine").refresh()
+        end)
+        if not expiry_notified then
+            expiry_notified = true
+            vim.notify(
+                "kotlin-lsp build has EXPIRED — go-to-definition/hover are dead.\n"
+                    .. "Install a newer intellij-server build (self-managed at "
+                    .. "~/.local/share/kotlin-lsp/current, or via Mason once its "
+                    .. "registry catches up).",
+                vim.log.levels.ERROR,
+                { title = "kotlin-lsp expired" }
+            )
+        end
+    end
+end
+
+-- Exposed for testing.
+M._detect_expiry = detect_expiry
+
 function M.component()
+    if vim.bo.filetype == "kotlin" and M._expired_kotlin then
+        return EXPIRED
+    end
     local s = state()
     if s == "ok" then
         return OK
@@ -143,6 +234,9 @@ function M.component()
 end
 
 function M.color()
+    if vim.bo.filetype == "kotlin" and M._expired_kotlin then
+        return { fg = EXPIRED_FG }
+    end
     local s = state()
     if s == "ok" then
         return { fg = OK_FG }
@@ -199,5 +293,28 @@ vim.api.nvim_create_autocmd({ "LspAttach", "LspDetach" }, {
         end)
     end,
 })
+
+-- Kotlin expiry watch: give the server ~10s to attach after a Kotlin buffer
+-- opens, then check whether it died on an expired build (see detect_expiry).
+local EXPIRY_CHECK_MS = 10000
+vim.api.nvim_create_autocmd("FileType", {
+    group = group,
+    pattern = "kotlin",
+    callback = function(ev)
+        vim.defer_fn(function()
+            detect_expiry(ev.buf)
+        end, EXPIRY_CHECK_MS)
+    end,
+})
+
+-- Cold open (`nvim Foo.kt`): the first Kotlin FileType can fire before lualine
+-- lazy-loads this module, so the autocmd above would miss it. Catch the current
+-- buffer if it is already Kotlin at require time.
+if vim.bo.filetype == "kotlin" then
+    local buf = vim.api.nvim_get_current_buf()
+    vim.defer_fn(function()
+        detect_expiry(buf)
+    end, EXPIRY_CHECK_MS)
+end
 
 return M
