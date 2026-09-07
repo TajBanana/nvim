@@ -227,6 +227,23 @@ function M._prompt_expired()
     map("<Esc>", close)
 end
 
+-- Show the expiry prompt, but never while the user is mid-insert/visual/etc.:
+-- M._prompt_expired steals window focus, so firing it during editing would feed
+-- the user's keystrokes to the float's y/n maps. Wait for normal mode, retrying a
+-- few times, then give up quietly (the ⏱ stays and :KotlinLspUpdate still works).
+local expiry_prompt_tries = 0
+local function prompt_when_ready()
+    if vim.api.nvim_get_mode().mode:sub(1, 1) ~= "n" then
+        expiry_prompt_tries = expiry_prompt_tries + 1
+        if expiry_prompt_tries <= 10 then
+            vim.defer_fn(prompt_when_ready, 3000)
+        end
+        return
+    end
+    M._prompt_expired()
+end
+M._prompt_when_ready = prompt_when_ready -- exposed for testing
+
 -- Called ~10s after a Kotlin buffer opens. A healthy build attaches its client
 -- within a few seconds (indexing/import happens *after* attach), so if none has
 -- attached by now the server likely died on startup. The one death worth calling
@@ -255,7 +272,7 @@ local function detect_expiry(bufnr)
         end)
         if not expiry_prompted then
             expiry_prompted = true
-            M._prompt_expired()
+            prompt_when_ready()
         end
     end
 end
@@ -313,17 +330,27 @@ vim.api.nvim_create_autocmd("LspProgress", {
         if cid == nil or token == nil then
             return
         end
+        -- Only begin/end flip the loading state (and thus the icon). "report"
+        -- events stream many times per second while a server indexes, so
+        -- refreshing on them would repaint the statusline continuously for no
+        -- visible change -- and steal cycles from input handling. Refresh only
+        -- when the state actually changed.
+        local changed = false
         if value.kind == "begin" then
             active[cid] = active[cid] or {}
             active[cid][token] = true
+            changed = true
         elseif value.kind == "end" then
             if active[cid] then
                 active[cid][token] = nil
             end
+            changed = true
         end
-        pcall(function()
-            require("lualine").refresh()
-        end)
+        if changed then
+            pcall(function()
+                require("lualine").refresh()
+            end)
+        end
     end,
 })
 
