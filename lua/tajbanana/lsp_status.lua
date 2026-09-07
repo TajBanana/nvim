@@ -13,10 +13,10 @@
 -- has expired" to stderr and dies before attaching, so the generic signal is just
 -- a plain ✗. To make the *reason* legible, a Kotlin buffer that has no kotlin_lsp
 -- client ~10s after opening triggers a scan of the LSP log tail; if the expiry
--- message is there, the icon becomes ⏱ and a one-shot Telescope prompt asks
--- whether to update (running :KotlinLspUpdate on "Update now"). It self-heals to
--- ✓/⟳ once a live build attaches. This only fires for kotlin because it is the
--- only expiring server.
+-- message is there, the icon becomes ⏱ and a one-shot small floating prompt asks
+-- whether to update (running :KotlinLspUpdate on `y`). It self-heals to ✓/⟳ once
+-- a live build attaches. This only fires for kotlin because it is the only
+-- expiring server.
 --
 -- "Finished loading" is detected from LSP work-done progress ($/progress): a
 -- server that is still indexing keeps a progress token open, so ✓ is withheld
@@ -174,6 +174,59 @@ end
 
 local expiry_prompted = false
 
+-- A small bordered float offering to run :KotlinLspUpdate, shown once per session
+-- when an expired build is detected (see detect_expiry). Deliberately tiny -- a
+-- full picker is overkill for a yes/no. `y` updates, `n`/`q`/`<Esc>` dismiss.
+-- Exposed so it can be previewed by hand:
+--   :lua require("tajbanana.lsp_status")._prompt_expired()
+function M._prompt_expired()
+    local lines = {
+        " kotlin-lsp build expired — LSP is dead.",
+        " [y] update now    [n] dismiss",
+    }
+    local width = 0
+    for _, l in ipairs(lines) do
+        width = math.max(width, vim.fn.strdisplaywidth(l))
+    end
+    width = width + 1
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    vim.bo[buf].modifiable = false
+    vim.bo[buf].bufhidden = "wipe"
+    local prev = vim.api.nvim_get_current_win()
+    local win = vim.api.nvim_open_win(buf, true, {
+        relative = "editor",
+        row = math.max(0, math.floor((vim.o.lines - #lines) / 2) - 1),
+        col = math.max(0, math.floor((vim.o.columns - width) / 2)),
+        width = width,
+        height = #lines,
+        style = "minimal",
+        border = "rounded",
+        title = " kotlin-lsp ",
+        title_pos = "left",
+        noautocmd = true,
+    })
+    vim.cmd("stopinsert") -- in case the buffer was in insert mode when this fired
+    local function close()
+        if vim.api.nvim_win_is_valid(win) then
+            vim.api.nvim_win_close(win, true)
+        end
+        if vim.api.nvim_win_is_valid(prev) then
+            pcall(vim.api.nvim_set_current_win, prev)
+        end
+    end
+    local function map(key, fn)
+        vim.keymap.set("n", key, fn, { buffer = buf, nowait = true, silent = true })
+    end
+    map("y", function()
+        close()
+        vim.cmd("KotlinLspUpdate")
+    end)
+    map("n", close)
+    map("q", close)
+    map("<Esc>", close)
+end
+
 -- Called ~10s after a Kotlin buffer opens. A healthy build attaches its client
 -- within a few seconds (indexing/import happens *after* attach), so if none has
 -- attached by now the server likely died on startup. The one death worth calling
@@ -202,18 +255,7 @@ local function detect_expiry(bufnr)
         end)
         if not expiry_prompted then
             expiry_prompted = true
-            -- Offer to fix it right here. vim.ui.select routes through
-            -- telescope-ui-select in this config (see plugins/telescope.lua), so
-            -- this shows as a Telescope popup; on "Update now" it runs the
-            -- :KotlinLspUpdate command, which fetches the latest build and
-            -- reattaches. Dismissing (Esc -> nil) does nothing.
-            vim.ui.select({ "Update now", "Not now" }, {
-                prompt = "kotlin-lsp build expired (LSP is dead) — update to the latest build?",
-            }, function(choice)
-                if choice == "Update now" then
-                    vim.cmd("KotlinLspUpdate")
-                end
-            end)
+            M._prompt_expired()
         end
     end
 end
