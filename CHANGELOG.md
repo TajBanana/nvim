@@ -3,6 +3,19 @@
 Notable changes to this Neovim configuration, newest first. Dates are taken
 from git history; entries before 2026 are reconstructed from commit messages.
 
+## 2026-09-14 — Confirmed Kotlin LSP fallback updates
+
+### Changed
+
+- Kotlin LSP updates prefer the latest GitHub release and validate its startup before installation. An explicitly expired GitHub build offers an Open VSX replacement in a second popup; downloading that server requires another `y`.
+- Expiry prompts show failed and proposed versions and sources. Older installations without source records are labeled unknown.
+
+### Added
+
+- Retry/dismiss for network, checksum, timeout, and unrelated startup failures. Identical expired builds are skipped, and failed validation preserves the installation.
+- In-editor and cross-process update guards, including while awaiting fallback confirmation; atomic activation after successful validation.
+- Offline updater tests and headless popup/controller checks. The complete workflow is documented under Troubleshooting in `readme.md` and in `docs/design-decisions.md`.
+
 ## 2026-09-07 — Self-managed kotlin-lsp + expiry indicator
 
 ### Changed

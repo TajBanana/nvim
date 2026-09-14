@@ -173,6 +173,37 @@ local function kotlin_attached(bufnr)
 end
 
 local expiry_prompted = false
+local expired_installation
+
+local function installation_info(dir)
+    dir = vim.uv.fs_realpath(dir) or dir
+    local version = dir:match("kotlin%-server%-(%d+%.%d+%.%d+)")
+        or log_tail(dir .. "/build.txt", 256):match("(%d+%.%d+%.%d+)")
+        or "unknown"
+    local source = "unknown (installed before source tracking)"
+    if dir:find("/packages/kotlin-lsp", 1, true) then
+        source = "Mason"
+    else
+        local ok, metadata = pcall(vim.json.decode, log_tail(dir .. "/install-source.json", 4096))
+        if ok and type(metadata) == "table" and metadata.version == version
+            and (metadata.source == "GitHub" or metadata.source == "Open VSX") then
+            source = metadata.source
+        end
+    end
+    return { version = version, source = source }
+end
+
+local function current_installation()
+    -- Match kotlin.nvim's Mason-first resolver when it is loaded.
+    local kotlin = package.loaded.kotlin
+    local mason = vim.fn.expand("$MASON/packages/kotlin-lsp")
+    if kotlin and kotlin.resolve_kotlin_lsp_dir and vim.fn.isdirectory(mason) == 1 then
+        local dir = kotlin.resolve_kotlin_lsp_dir(mason, vim.fn.has("win32") == 1)
+        if dir then return installation_info(dir) end
+    end
+    return installation_info(vim.env.KOTLIN_LSP_DIR or vim.fn.expand("~/.local/share/kotlin-lsp/current"))
+end
+M._installation_info = installation_info
 
 -- A small bordered float offering to run :KotlinLspUpdate, shown once per session
 -- when an expired build is detected (see detect_expiry). Deliberately tiny -- a
@@ -180,15 +211,21 @@ local expiry_prompted = false
 -- Exposed so it can be previewed by hand:
 --   :lua require("tajbanana.lsp_status")._prompt_expired()
 function M._prompt_expired()
+    local info = expired_installation or current_installation()
     local lines = {
-        " kotlin-lsp build expired — LSP is dead.",
+        " Failed: Kotlin LSP " .. info.version,
+        " Source: " .. info.source,
+        " To install: checking latest GitHub release…",
+        " Source: GitHub (expiry check pending)",
+        " If expired: ask before downloading Open VSX.",
+        "",
         " [y] update now    [n] dismiss",
     }
     local width = 0
     for _, l in ipairs(lines) do
         width = math.max(width, vim.fn.strdisplaywidth(l))
     end
-    width = width + 1
+    width = math.min(width + 1, math.max(1, vim.o.columns - 4))
     local buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     vim.bo[buf].modifiable = false
@@ -202,7 +239,7 @@ function M._prompt_expired()
         height = #lines,
         style = "minimal",
         border = "rounded",
-        title = " kotlin-lsp ",
+        title = " Kotlin LSP expired ",
         title_pos = "left",
         noautocmd = true,
     })
@@ -225,6 +262,24 @@ function M._prompt_expired()
     map("n", close)
     map("q", close)
     map("<Esc>", close)
+
+    local function show_candidate(text)
+        if not vim.api.nvim_buf_is_valid(buf) then return end
+        vim.bo[buf].modifiable = true
+        vim.api.nvim_buf_set_lines(buf, 2, 3, false, { " To install: " .. text })
+        vim.bo[buf].modifiable = false
+    end
+    local script = vim.fn.stdpath("config") .. "/scripts/update-kotlin-lsp.sh"
+    vim.system({ "bash", script, "--preview" }, { text = true }, function(result)
+        vim.schedule(function()
+            local version = (result.stdout or ""):match("CANDIDATE kotlin%-server%-([%d.]+) GitHub")
+            if result.code == 0 and version then
+                show_candidate("Kotlin LSP " .. version)
+            else
+                show_candidate("lookup failed; [y] retries")
+            end
+        end)
+    end)
 end
 
 -- Show the expiry prompt, but never while the user is mid-insert/visual/etc.:
@@ -265,7 +320,19 @@ local function detect_expiry(bufnr)
         return
     end
     local tail = log_tail(vim.lsp.get_log_path(), 65536)
-    if tail:find("intellij-server has expired", 1, true) then
+    local expired_dir
+    for line in tail:gmatch("[^\n]+") do
+        if line:find("intellij-server has expired", 1, true) or line:find("kotlin-server has expired", 1, true) then
+            expired_dir = line:match('"([^"\t]+)[/\\]bin[/\\]intellij%-server[^"\t]*"') or expired_dir
+        end
+    end
+    if expired_dir then
+        local info = installation_info(expired_dir)
+        local current = current_installation()
+        -- Ignore expiry lines for an older installation left in the log after
+        -- an update. Show the version from the failing executable, not current.
+        if current.version ~= "unknown" and info.version ~= "unknown" and current.version ~= info.version then return end
+        expired_installation = info
         M._expired_kotlin = true
         pcall(function()
             require("lualine").refresh()
