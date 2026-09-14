@@ -198,6 +198,7 @@ return {
 
         require("onedark").setup({
             style = "deep",
+            transparent = true, -- let WezTerm's background show through
             colors = {
                 -- Darkened, desaturated backgrounds: 30% darker than the "deep"
                 -- style defaults, then ~30% desaturated toward grey to cut the
