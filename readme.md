@@ -226,13 +226,14 @@ The markers still show the true picture — count the `■` glyphs, or check the
 
 ## Opening files in the OS default app (`Space go`)
 
-`Space go` hands the current file to the desktop's default handler — `.html` opens the browser, `.pdf` the viewer, and so on. It works on **macOS, WSL and Linux**, but the three are genuinely different and the config picks the launcher itself rather than delegating to `vim.ui.open`:
+`Space go` hands the current file to the desktop's default handler — `.html` opens the browser, `.pdf` the viewer, and so on. The forge shortcuts (`Space gm` and `Space gl`) use the same launcher. It works on **macOS, WSL and Linux**, but the environments are genuinely different and the config picks the launcher itself rather than delegating to `vim.ui.open`:
 
 | platform | launcher | path passed | exit code |
 |---|---|---|---|
 | macOS | `open` | POSIX | 0 on success |
 | WSL | `explorer.exe` | **Windows** path, via `wslpath -w` | always 1, even on success — ignored |
 | Linux | `xdg-open` | POSIX | 0 on success, 1–4 on failure |
+| Fedora Toolbx | `flatpak-spawn --host xdg-open` | shared POSIX path or URL | host handler's exit code |
 
 Two reasons this is not left to `vim.ui.open`, both learned the hard way:
 
@@ -241,7 +242,7 @@ Two reasons this is not left to `vim.ui.open`, both learned the hard way:
 
 The launcher and the path format are therefore chosen together — converting the path to Windows form and then letting something else pick the launcher was the original bug — and a non-zero exit is now reported as an error toast instead of being swallowed. WSL is exempt from that check because `explorer.exe` returns 1 even when it succeeds.
 
-If `Space go` ever does nothing on Linux, run `xdg-open <file>` in a shell: exit 3 or 4 means there is no desktop handler registered, which is an OS-level problem rather than a Neovim one.
+If a shortcut does nothing on native Linux, run `xdg-open <file-or-url>` in a shell. Inside Fedora Toolbx, test `flatpak-spawn --host xdg-open <file-or-url>` instead; the host bridge is necessary because rpm-ostree applications and their desktop entries are outside the container.
 
 ## LSP servers and formatters
 
