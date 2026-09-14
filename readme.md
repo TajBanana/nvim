@@ -191,12 +191,15 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 ln -s ~/.config/nvim/.ideavimrc ~/.ideavimrc
 ```
 
-**`.wezterm.lua`** — WezTerm terminal config, cross-platform. It branches on `wezterm.target_triple`, so one file covers both machines:
+**`.wezterm.lua`** — WezTerm terminal config, cross-platform. It branches on `wezterm.target_triple` and uses 12pt fonts on all platforms:
 
-- **macOS** — translates `Cmd`/`Option` chords into keys nvim can see; 16pt.
-- **Windows** — the same chords remapped to `Ctrl`/`Alt`, plus a `WSL:Debian` domain set as `default_domain` so panes open straight into WSL at `~`; 12pt.
+- **macOS** — translates `Cmd`/`Option` chords into keys nvim can see.
+- **Windows** — the same chords remapped to `Ctrl`/`Alt`, plus a `WSL:Debian` domain set as `default_domain` so panes open straight into WSL at `~`.
+- **Linux (Debian and Fedora)** — uses `Ctrl`/`Alt` bindings and the native shell; no WSL domain. Both distributions share the Linux selection in Neovim's `tajbanana.platform` module as well.
 
-Copy it to where WezTerm looks: `~/.wezterm.lua` on macOS, or your **Windows** home (`C:\Users\<you>\.wezterm.lua`) — *not* the WSL home, since WezTerm runs on the Windows side.
+Copy or symlink it to `~/.wezterm.lua` on macOS/Linux. On Windows, copy it to your **Windows** home (`C:\Users\<you>\.wezterm.lua`) — *not* the WSL home, since WezTerm runs on the Windows side.
+
+For Neovim options that differ by OS, use `platform.pick({ linux = ..., mac = ..., windows = ... }, default)` or `platform.linux`; Debian and Fedora need no separate branch. WSL also counts as Linux, with an optional `wsl` entry taking precedence in `platform.pick`. Desktop file opening uses `xdg-open` on native Linux. Fonts, clipboard providers, and external tools must be installed on each machine; the theme and plugin settings are shared.
 
 Two things that are easy to get wrong on Windows and fail silently:
 

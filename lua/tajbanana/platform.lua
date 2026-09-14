@@ -1,8 +1,7 @@
--- Platform detection, so this one repo serves the Mac and the Windows/WSL box
--- without a per-machine branch.
+-- Platform detection for macOS, Windows/WSL, and native Debian/Fedora Linux.
 --
 -- There is deliberately no distro handling. Neovim reports `linux` for Ubuntu,
--- Debian, Arch and everything else alike -- there is no per-distro feature flag
+-- Debian, Fedora, Arch and everything else alike -- there is no per-distro feature flag
 -- to group in the first place. If something ever genuinely differs per distro
 -- it belongs in machine setup (see docs/deviations-from-main.md), not in here.
 --
