@@ -224,7 +224,7 @@ function M.open_request()
                     url = (ok and type(decoded) == "table" and decoded.web_url) or ""
                 end
                 if out.code == 0 and url ~= "" then
-                    vim.ui.open(url)
+                    require("tajbanana.system_open").open(url)
                 else
                     -- A non-zero exit is ambiguous ("none yet" vs an auth or
                     -- network error), so defer to the token-free check rather
@@ -271,9 +271,9 @@ function M._open_request_via_lsremote(ctx, create_url)
                 end
             end
             if best then
-                vim.ui.open(ctx.base .. forge.request_path .. best)
+                require("tajbanana.system_open").open(ctx.base .. forge.request_path .. best)
             else
-                vim.ui.open(create_url) -- none yet
+                require("tajbanana.system_open").open(create_url) -- none yet
             end
         end)
     )
@@ -316,7 +316,7 @@ function M.open_line(range)
     else
         frag = string.format("#L%d", (range and range[1]) or vim.fn.line("."))
     end
-    vim.ui.open(
+    require("tajbanana.system_open").open(
         ctx.base .. ctx.forge.blob_path .. encode_component(ctx.branch) .. "/" .. encode_component(relpath) .. frag
     )
 end

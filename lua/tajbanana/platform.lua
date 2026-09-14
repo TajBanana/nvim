@@ -40,9 +40,8 @@ M.name = (M.mac and "mac") or (M.wsl and "wsl") or (M.linux and "linux") or (M.w
 ---Keeps per-platform constants readable at the call site:
 ---  local font_size = platform.pick({ mac = 16, windows = 12 }, 14)
 ---
----Deliberately NOT an example: choosing a file opener. nvim's vim.ui.open already
----does that, and hand-rolling it is how <leader>go broke (see set.lua) -- the
----launcher and its path format are coupled, so they cannot be picked apart.
+---Deliberately NOT an example: choosing a file opener. Use system_open.lua so
+---the launcher, path format, and Toolbx host boundary stay coupled.
 ---@param map table<string, any> keyed by "mac" | "wsl" | "linux" | "windows"
 ---@param default any
 ---@return any
