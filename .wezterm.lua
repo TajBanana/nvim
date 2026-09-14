@@ -6,19 +6,16 @@ local config = wezterm.config_builder()
 
 local action = wezterm.action
 
--- One config for both machines. This file used to be macOS-only, and the
--- Windows box kept a hand-edited fork of it; the two drifted in both directions
--- until each had features the other was missing (Windows lost inline images,
--- macOS lost the WSL boot). Branch on the platform here instead so there is a
--- single source of truth. See docs/deviations-from-main.md.
+-- One config for macOS, Windows/WSL, and native Linux (Debian and Fedora).
+-- Detect the OS running WezTerm; Windows-hosted WSL panes still use Windows.
 local is_windows = wezterm.target_triple:find("windows") ~= nil
+local is_linux = wezterm.target_triple:find("linux") ~= nil
 
 -- ── Fonts ────────────────────────────────────────────────────────────────────
 config.font = wezterm.font_with_fallback({
     "JetBrainsMono Nerd Font",
     "Symbols Nerd Font Mono",
 })
--- The Windows display runs at a different scale; 16pt there is oversized.
 config.font_size = is_windows and 12.0 or 15.0
 config.line_height = 1.2
 config.initial_rows = 48
@@ -46,6 +43,7 @@ if is_windows then
 end
 
 -- ── Appearance ───────────────────────────────────────────────────────────────
+config.color_scheme = "Catppuccin Mocha"
 config.audible_bell = 'Disabled'
 config.default_cursor_style = 'BlinkingBlock'
 config.cursor_blink_ease_in = 'Constant'
@@ -53,8 +51,32 @@ config.cursor_blink_ease_out = 'Constant'
 config.cursor_blink_rate = 500
 
 config.colors = {
+    background = '#181825', -- Mocha mantle
     cursor_bg = '#00ff00',   -- The fill color of the cursor
     cursor_border = '#00ff00', -- The color of the cursor's border
+    tab_bar = {
+        background = '#181825',
+        active_tab = {
+            bg_color = '#1e1e2e', -- Mocha base
+            fg_color = '#cdd6f4',
+        },
+        inactive_tab = {
+            bg_color = '#181825',
+            fg_color = '#7f849c', -- Mocha overlay1, muted text
+        },
+        inactive_tab_hover = {
+            bg_color = '#1e1e2e',
+            fg_color = '#cdd6f4',
+        },
+        new_tab = {
+            bg_color = '#181825',
+            fg_color = '#7f849c',
+        },
+        new_tab_hover = {
+            bg_color = '#1e1e2e',
+            fg_color = '#cdd6f4',
+        },
+    },
 }
 
 config.window_frame = {
@@ -62,8 +84,8 @@ config.window_frame = {
     -- bundled with wezterm, so this needs no system install.
     font = wezterm.font { family = 'Roboto', weight = 'Bold' },
     font_size = is_windows and 12.0 or 14.0,
-    active_titlebar_bg = '#333333',   -- focused window
-    inactive_titlebar_bg = '#333333', -- unfocused window
+    active_titlebar_bg = '#181825',   -- Mocha mantle
+    inactive_titlebar_bg = '#181825',
 }
 
 config.window_padding = {
@@ -81,10 +103,9 @@ config.window_padding = {
 config.enable_kitty_graphics = true
 
 -- ── Keys ─────────────────────────────────────────────────────────────────────
--- Same intent on both platforms, different physical modifiers: macOS sends
--- CMD/OPT where Windows sends CTRL/ALT. The *emitted* keys are identical, since
--- they target readline/nvim on the WSL or macOS side either way.
-if is_windows then
+-- Windows and Linux use CTRL/ALT; macOS uses CMD/OPT. Debian and Fedora
+-- share the Linux bindings, with identical emitted readline/Neovim keys.
+if is_windows or is_linux then
     config.keys = {
         -- let Alt+Enter reach nvim (code actions) instead of toggling fullscreen
         { mods = "ALT", key = "Enter", action = action.DisableDefaultAssignment },
