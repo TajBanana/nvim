@@ -397,16 +397,7 @@ return {
             local cmp = require("cmp")
             local cmp_select = { behavior = cmp.SelectBehavior.Select }
 
-            -- Run only after Enter/Tab accepts an item, once snippet expansion
-            -- has finished. Leave argument placeholders available for editing.
-            local function exit_empty_call()
-                local cursor = vim.api.nvim_win_get_cursor(0)
-                local col = cursor[2]
-                local line = vim.api.nvim_get_current_line()
-                if col > 0 and line:sub(col, col + 1) == "()" then
-                    vim.api.nvim_win_set_cursor(0, { cursor[1], col + 1 })
-                end
-            end
+            local completion = require("tajbanana.completion")
 
             cmp.setup({
                 snippet = {
@@ -428,7 +419,7 @@ return {
                     ["<Tab>"] = cmp.mapping(function(fallback)
                         local luasnip = require("luasnip")
                         if cmp.visible() then
-                            if not cmp.confirm({ select = true }, exit_empty_call) then fallback() end
+                            if not completion.confirm(cmp, true) then fallback() end
                         elseif luasnip.locally_jumpable(1) then
                             luasnip.jump(1)
                         else
@@ -444,7 +435,7 @@ return {
                         end
                     end, { "i", "s" }),
                     ["<CR>"] = cmp.mapping(function(fallback)
-                        if not cmp.confirm({ select = false }, exit_empty_call) then fallback() end
+                        if not completion.confirm(cmp, false) then fallback() end
                     end),
                     ["<C-Space>"] = cmp.mapping.complete(),
                 }),
