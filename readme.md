@@ -254,7 +254,7 @@ Put the cursor on any token and run `:Inspect` to see its Treesitter/LSP highlig
 
 ## Troubleshooting
 
-**Kotlin: `Space gd`, hover, and completion silently stop working — nothing attaches.** The JetBrains `intellij-server` binary behind kotlin-lsp is a time-limited **EAP build that expires roughly monthly**. Once it lapses it still launches, prints an expiry notice, and exits *before* initializing — so the client never attaches and none of the `LspAttach` keymaps (`Space gd` among them) ever bind. You get two tells: the statusline shows a red **⏱** beside the `kotlin` filetype (instead of the usual ✗) and, ~10s after opening a Kotlin file, a small floating prompt asks whether to update — press **`y`** and it runs `:KotlinLspUpdate` for you (see below). Confirm the cause in `:LspLog` (or `~/.local/state/nvim/lsp.log`):
+**Kotlin: `Space gd`, hover, and completion silently stop working — nothing attaches.** The JetBrains `intellij-server` binary behind kotlin-lsp is a time-limited **EAP build that expires roughly monthly**. Once it lapses it still launches, prints an expiry notice, and exits *before* initializing — so the client never attaches and none of the `LspAttach` keymaps (`Space gd` among them) ever bind. You get two tells: the statusline shows a red **⏱** beside the `kotlin` filetype (instead of the usual ✗) and, ~10s after opening a Kotlin file, a floating prompt shows the failed LSP version and installation source, looks up the proposed GitHub version, and asks whether to update — press **`y`** and it runs `:KotlinLspUpdate` for you (see below). Confirm the cause in `:LspLog` (or `~/.local/state/nvim/lsp.log`):
 
 ```
 Client kotlin_lsp quit with exit code 7 ...
@@ -270,20 +270,35 @@ readlink ~/.local/share/kotlin-lsp/current        # -> …/kotlin-server-<build>
 cat ~/.local/share/kotlin-lsp/current/build.txt    # -> LS-<build>
 ```
 
-(`:LspInfo` on a Kotlin buffer also shows the launch path, which contains the build number.) The latest build JetBrains has published — check the **Open VSX registry API**, which updates before their GitHub releases:
+In a Kotlin buffer, inspect the running client's reported version and command with:
 
-```sh
-curl -s https://open-vsx.org/api/JetBrains/kotlin-server \
-  | python3 -c 'import sys,json;print(json.load(sys.stdin)["version"])'
+```vim
+:lua for _, c in ipairs(vim.lsp.get_clients({ name = "kotlin_lsp" })) do vim.print({ server = c.server_info, command = c.config.cmd }) end
 ```
 
-That prints the newest *extension* version; its bundled **server** build is named in `server-bundle.json` (step 1 below). For a human-readable list there's `https://open-vsx.org/extension/JetBrains/kotlin-server` and `https://github.com/Kotlin/kotlin-lsp/releases`, but the GitHub releases lag — treat the Open VSX API as the source of truth. If your installed build already equals the latest and it's *still* expired, JetBrains simply hasn't shipped a newer one yet.
+**Expiry popup.** The popup labels the proposed replacement as pending an expiry check. Looking up that version fetches only GitHub metadata; downloads and server checks start when you press `y`. New downloads record their source (GitHub or Open VSX) beside the server. Older self-managed installs without that record show an unknown source rather than guessing. Expiry log entries for a different installed version are ignored.
 
-**Easiest — `:KotlinLspUpdate`.** In any Kotlin session, run `:KotlinLspUpdate`. It runs `scripts/update-kotlin-lsp.sh` — discover the latest build via Open VSX, download + sha256-verify it, repoint `current` — then reattaches the server in place (no nvim restart), streaming the download progress (phase + live percentage) to a **fidget** bar. It's idempotent (a no-op when you're already current) and also performs the first-time install.
+**Update source order.** The updater prefers the [latest GitHub release](https://github.com/Kotlin/kotlin-lsp/releases/latest). It reads the platform's archive and SHA-256 links from the release metadata, verifies the download, and tests LSP initialization with temporary configuration, cache, and log directories and no project. An already-installed candidate is also checked: matching version numbers do not prove that a build is still valid.
+
+**Confirmed fallback workflow.**
+
+1. If Kotlin LSP fails to attach and logs an expiry message, the first popup shows the failed version/source and previews the latest GitHub replacement version.
+2. Press `y` to download the GitHub server, verify its SHA-256, and test initialization in isolation. An installed candidate can be reused, but still undergoes the startup check.
+3. Only an explicit `intellij-server has expired` or `kotlin-server has expired` response allows an Open VSX alternative. The updater reads the latest extension's `server-bundle.json` to find its server version, archive URL, and checksum. This fetches the extension package for metadata; the server archive is not downloaded yet.
+4. A **second popup** shows the expired GitHub version, the failure reason, and the proposed Open VSX server version/source. Press `y` again to download and validate that exact candidate. Press `n`, `q`, or `Esc` (or close the popup) to dismiss and keep the installation unchanged.
+5. Only after validation succeeds does the updater install the build, atomically repoint `current`, and restart Kotlin LSP. The statusline returns to its normal loading/ready state when the server attaches.
+
+**Failure safeguards.** Network errors, checksum mismatches, unrelated startup errors, and the 45-second startup timeout offer **retry/dismiss**, without automatically changing sources. Retry starts the GitHub-first workflow again; an Open VSX download always requires its own confirmation. If Open VSX offers the same expired version, there is no second download prompt. If both candidates explicitly expire, the updater reports that no usable alternative is available. Build age is never treated as proof of expiry. All candidate-validation failures preserve the existing installation.
+
+**Overlapping updates.** An in-editor guard blocks another update while downloading, waiting for either confirmation/retry, or restarting. An OS file lock also blocks competing updaters from other Neovim instances or terminals, including while the second confirmation is pending. The OS releases the lock when the updater exits; the `.update.lock` file itself may remain and does not mean an update is active. Metadata-only previews do not take this lock. Async confirmation and retry popups wait for normal mode so they do not consume typing keystrokes.
+
+**Easiest — `:KotlinLspUpdate`.** In a Kotlin session, run `:KotlinLspUpdate`. It runs `scripts/update-kotlin-lsp.sh`, installs the validated candidate, repoints `current`, and reattaches the server in place, with progress in a **fidget** bar. It also handles first-time installation. A valid GitHub release takes priority even if Open VSX offers a higher build number. If the chosen build is already current and passes the check, no installation is performed.
 
 The script **auto-detects OS and arch** (macOS and Linux/WSL, arm64/x64) and pulls the matching asset, so the same command works on either machine — each box just needs its own one-time `:MasonUninstall kotlin-lsp` + first run, and `curl`, `unzip`, and `python3` on `PATH`. To **preview the expiry prompt** yourself without waiting for a real expiry, run `:lua require('tajbanana.lsp_status')._prompt_expired()` (press `y` in the float to run the update, `n`/`Esc` to dismiss); or check the whole flow from a shell with `bash ~/.config/nvim/scripts/update-kotlin-lsp.sh`, which prints `UP-TO-DATE …` or `UPDATED …`.
 
-The manual steps below are exactly what `:KotlinLspUpdate` automates, for doing it by hand or on a machine without this config:
+From a terminal, `bash ~/.config/nvim/scripts/update-kotlin-lsp.sh` also asks before the Open VSX server download. Without an interactive terminal it declines fallback rather than assuming consent. `--preview` fetches only the GitHub candidate metadata. Neovim uses `--interactive` to receive the second-confirmation marker and reply over stdin.
+
+The manual Open VSX extraction steps below are a troubleshooting reference; they do not provide the updater's confirmation, startup validation, or locking safeguards:
 
 **To update to a fresh build (manually):**
 

@@ -2,24 +2,33 @@
 #
 # Update the self-managed kotlin-lsp build to the latest JetBrains ships.
 #
-# Why this exists: intellij-server (the binary behind kotlin-lsp) is a time-bombed
-# EAP build that expires ~30 days after release. JetBrains' sanctioned free path is
-# to keep pulling fresh builds ("each build renews the evaluation period"). Their
-# GitHub releases and the Mason registry both lag by weeks, so the current build is
-# discovered from the Open VSX `kotlin-server` extension's server-bundle.json — the
-# same trail documented in the readme's Troubleshooting section and
-# docs/design-decisions.md.
-#
-# Idempotent: exits 0 early ("UP-TO-DATE ...") when the installed build already
-# matches the latest. Safe to run while nvim is open — it never launches the server
-# (which holds a machine-wide analyzer lock); it only downloads and repoints the
-# `current` symlink, which takes effect on the next server start. The last stdout
-# line is a machine-readable status: "UP-TO-DATE kotlin-server-<build>" or
-# "UPDATED kotlin-server-<build>".
+# Prefer the latest GitHub release. Only an explicit expiry response from an
+# isolated startup probe permits offering Open VSX, with a second confirmation. Download, checksum,
+# timeout, and other startup failures leave the installed version untouched.
+# The probe uses temporary cache/config/log paths and never opens a project.
+# Last stdout line: "UP-TO-DATE kotlin-server-<build>" or "UPDATED ...".
 set -euo pipefail
+locked=false
+if [ "${1:-}" = --locked ]; then
+    locked=true
+    shift
+fi
+mode="${1:-update}"
+case "$mode" in
+    update | --preview | --interactive) ;;
+    *) echo "usage: $0 [--preview | --interactive]" >&2; exit 1 ;;
+esac
 
 DEST="${KOTLIN_LSP_HOME:-$HOME/.local/share/kotlin-lsp}"
 API="https://open-vsx.org/api/JetBrains/kotlin-server"
+GITHUB_API="https://api.github.com/repos/Kotlin/kotlin-lsp/releases/latest"
+HELPER="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/kotlin-lsp-release.py"
+
+# The OS releases this lock even after a crash. It remains held while waiting
+# for the Open VSX confirmation, including across different Neovim instances.
+if [ "$mode" != --preview ] && [ "$locked" = false ]; then
+    exec python3 "$HELPER" locked "$DEST" "${BASH_SOURCE[0]}" "$mode"
+fi
 
 # Platform -> Open VSX extension target. The per-platform .vsix carries a
 # server-bundle.json with the matching .sit/.tar.gz URL + sha256, so we never
@@ -41,78 +50,158 @@ need unzip
 
 jq_field() { printf '%s' "$1" | python3 -c "import sys,json;print(json.load(sys.stdin)[\"$2\"])"; }
 
-# Latest extension version.
-ext_json="$(curl -fsSL "$API")"
-ext_ver="$(jq_field "$ext_json" version)"
-[ -n "$ext_ver" ] || { echo "could not determine latest extension version" >&2; exit 1; }
-
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-
-# server-bundle.json inside that version's platform .vsix names the server build.
-vsix_url="$API/$target/$ext_ver/file/JetBrains.kotlin-server-$ext_ver@$target.vsix"
-curl -fsSL "$vsix_url" -o "$tmp/ext.vsix"
-bundle="$(unzip -p "$tmp/ext.vsix" extension/server-bundle.json)"
-build="$(jq_field "$bundle" version)"
-url="$(jq_field "$bundle" url)"
-sha256="$(jq_field "$bundle" sha256)"
-archive="$(jq_field "$bundle" archiveName)"
-[ -n "$build" ] && [ -n "$url" ] && [ -n "$sha256" ] || { echo "server-bundle.json missing fields" >&2; exit 1; }
-
-# Already current?
 have=""
 [ -L "$DEST/current" ] && have="$(basename "$(readlink "$DEST/current")")"
-if [ "$have" = "kotlin-server-$build" ]; then
+
+prepare_candidate() {
+    build="$(jq_field "$bundle" version)"
+    url="$(jq_field "$bundle" url)"
+    archive="$(jq_field "$bundle" archiveName)"
+    # These fields become paths below: reject malformed remote metadata.
+    [[ "$build" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid build: $build" >&2; exit 1; }
+    [[ "$archive" != */* && "$archive" == kotlin-server-* ]] || { echo "invalid archive name" >&2; exit 1; }
+    src="$DEST/kotlin-server-$build"
+    if [ -x "$src/bin/intellij-server" ]; then
+        return
+    fi
+    if [ "$source" = GitHub ]; then
+        checksum_url="$(jq_field "$bundle" checksumUrl)"
+        checksum="$(curl -fsSL "$checksum_url")"
+        sha256="$(printf '%s' "$checksum" | awk '{print $1; exit}')"
+    else
+        sha256="$(jq_field "$bundle" sha256)"
+    fi
+    [[ "$sha256" =~ ^[a-fA-F0-9]{64}$ ]] || { echo "invalid SHA-256 checksum" >&2; exit 1; }
+    echo "· downloading $archive ($source)"
+    curl -fL --progress-bar "$url" -o "$tmp/$archive"
+    echo "· verifying checksum"
+    calc="$(python3 - "$tmp/$archive" <<'HASH'
+import hashlib, sys
+h = hashlib.sha256()
+with open(sys.argv[1], 'rb') as stream:
+    for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+        h.update(chunk)
+print(h.hexdigest())
+HASH
+)"
+    [ "$calc" = "$sha256" ] || { echo "sha256 MISMATCH for $archive" >&2; exit 1; }
+    echo "· extracting"
+    mkdir -p "$tmp/x"
+    case "$archive" in
+        *.tar.gz | *.tgz) tar -xzf "$tmp/$archive" -C "$tmp/x" ;;
+        *.sit | *.zip)
+            if command -v ditto >/dev/null 2>&1; then
+                ditto -x -k "$tmp/$archive" "$tmp/x"
+            else
+                unzip -q "$tmp/$archive" -d "$tmp/x"
+            fi
+            ;;
+        *) echo "unknown archive type: $archive" >&2; exit 1 ;;
+    esac
+    src="$tmp/x/kotlin-server-$build"
+    [ -x "$src/bin/intellij-server" ] || { echo "extracted tree missing bin/intellij-server" >&2; exit 1; }
+    # Record provenance only for a download made here, never guess where an
+    # existing installation originally came from.
+    python3 - "$src/install-source.json" "$build" "$source" "$url" <<'META'
+import json, sys
+with open(sys.argv[1], 'w') as stream:
+    json.dump(dict(version=sys.argv[2], source=sys.argv[3], url=sys.argv[4]), stream)
+META
+}
+
+check_candidate() {
+    echo "· checking $source build $build for expiry"
+    probe_status=0
+    python3 "$HELPER" probe "$src/bin/intellij-server" || probe_status=$?
+    if [ "$probe_status" -ne 0 ] && [ "$probe_status" -ne 10 ]; then
+        echo "Could not validate $source build $build; keeping current installation." >&2
+        exit 1
+    fi
+}
+
+source=GitHub
+echo "· checking latest GitHub release"
+release="$(curl -fsSL --connect-timeout 10 --max-time 30 "$GITHUB_API")"
+bundle="$(printf '%s' "$release" | python3 "$HELPER" github "$target")"
+if [ "$mode" = --preview ]; then
+    # Metadata only: the popup must not claim this candidate has passed its
+    # expiry check, or download/start a server before the user chooses update.
+    echo "CANDIDATE kotlin-server-$(jq_field "$bundle" version) GitHub"
+    exit 0
+fi
+prepare_candidate
+check_candidate
+if [ "$probe_status" -eq 10 ]; then
+    github_build="$build"
+    echo "GitHub build $build has expired; checking Open VSX."
+    source="Open VSX"
+    ext_json="$(curl -fsSL "$API")"
+    ext_ver="$(jq_field "$ext_json" version)"
+    [[ "$ext_ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid extension version" >&2; exit 1; }
+    vsix_url="$API/$target/$ext_ver/file/JetBrains.kotlin-server-$ext_ver@$target.vsix"
+    curl -fsSL "$vsix_url" -o "$tmp/ext.vsix"
+    bundle="$(unzip -p "$tmp/ext.vsix" extension/server-bundle.json)"
+    if [ "$(jq_field "$bundle" version)" = "$github_build" ]; then
+        echo "Open VSX offers the same expired build; keeping current installation." >&2
+        exit 12
+    fi
+    fallback_build="$(jq_field "$bundle" version)"
+    [[ "$fallback_build" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid fallback build" >&2; exit 1; }
+    # Only extension metadata has been fetched so far, not the server archive.
+    # Keep this exact bundle in memory so the confirmation approves this version.
+    echo "CONFIRM-OPEN-VSX $github_build $fallback_build"
+    if [ "$mode" != --interactive ] && [ ! -t 0 ]; then
+        echo "Open VSX requires confirmation; run in a terminal or use :KotlinLspUpdate." >&2
+        exit 20
+    fi
+    if [ "$mode" != --interactive ]; then
+        echo "GitHub $github_build expired. Download Open VSX $fallback_build? [y/N]"
+    fi
+    answer=""
+    read -r answer || true
+    case "$answer" in
+        y | Y) ;;
+        *) echo "CANCELLED"; exit 20 ;;
+    esac
+    prepare_candidate
+    check_candidate
+    if [ "$probe_status" -eq 10 ]; then
+        echo "Open VSX build $build has also expired; keeping current installation." >&2
+        exit 11
+    fi
+fi
+
+if [ "$have" = "kotlin-server-$build" ] && [ "$src" = "$DEST/kotlin-server-$build" ]; then
     echo "UP-TO-DATE kotlin-server-$build"
     exit 0
 fi
-echo "updating: ${have:-<none>} -> kotlin-server-$build (extension $ext_ver)"
-
-# Download + verify. --progress-bar writes "###  42.1%" to stderr; the :KotlinLspUpdate
-# command streams that to a fidget progress bar (harmless noise in a manual run).
-echo "· downloading $archive"
-curl -fL --progress-bar "$url" -o "$tmp/$archive"
-echo "· verifying checksum"
-if command -v shasum >/dev/null 2>&1; then
-    calc="$(shasum -a 256 "$tmp/$archive" | awk '{print $1}')"
-else
-    calc="$(sha256sum "$tmp/$archive" | awk '{print $1}')"
-fi
-if [ "$calc" != "$sha256" ]; then
-    echo "sha256 MISMATCH for $archive: got $calc want $sha256" >&2
-    exit 1
-fi
-
-# Extract (.sit is a zip; linux ships .tar.gz). The archive root is
-# kotlin-server-<build>/.
-echo "· extracting"
-mkdir -p "$tmp/x"
-case "$archive" in
-    *.tar.gz | *.tgz) tar -xzf "$tmp/$archive" -C "$tmp/x" ;;
-    *.sit | *.zip)
-        if command -v ditto >/dev/null 2>&1; then
-            ditto -x -k "$tmp/$archive" "$tmp/x"
-        else
-            unzip -q "$tmp/$archive" -d "$tmp/x"
-        fi
-        ;;
-    *) echo "unknown archive type: $archive" >&2; exit 1 ;;
-esac
-
-src="$tmp/x/kotlin-server-$build"
-[ -x "$src/bin/intellij-server" ] || { echo "extracted tree missing bin/intellij-server" >&2; exit 1; }
+echo "installing $source build $build"
 
 # Install + repoint the symlink atomically.
 mkdir -p "$DEST"
-rm -rf "$DEST/kotlin-server-$build"
-mv "$src" "$DEST/kotlin-server-$build"
-ln -sfn "$DEST/kotlin-server-$build" "$DEST/current"
+if [ "$src" != "$DEST/kotlin-server-$build" ]; then
+    rm -rf "$DEST/kotlin-server-$build"
+    mv "$src" "$DEST/kotlin-server-$build"
+fi
+python3 - "$DEST" "$build" <<'LINK'
+import os, sys, uuid
+from pathlib import Path
+dest = Path(sys.argv[1]).resolve()
+link = dest / ('.current-' + uuid.uuid4().hex)
+try:
+    link.symlink_to(dest / ('kotlin-server-' + sys.argv[2]))
+    os.replace(link, dest / 'current')
+finally:
+    link.unlink(missing_ok=True)
+LINK
 
 # Prune older builds to reclaim disk (each is ~1 GB extracted); keep only current.
 for d in "$DEST"/kotlin-server-*; do
     [ -d "$d" ] || continue
     [ "$d" = "$DEST/kotlin-server-$build" ] && continue
-    rm -rf "$d"
+    rm -rf "$d" || echo "Warning: could not remove old build $d" >&2
 done
 
 echo "UPDATED kotlin-server-$build"
