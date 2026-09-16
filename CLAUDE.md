@@ -13,13 +13,14 @@ Requires Neovim v0.11+ (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP AP
 **Entry point:** `init.lua` loads core settings then bootstraps lazy.nvim, which auto-discovers plugin specs from `lua/plugins/`.
 
 **Two key directories:**
-- `lua/tajbanana/set.lua` — Core Vim options and global keymaps (leader = Space). Loaded first, before plugins. It `require(...).setup()`s the feature/helper modules below rather than defining features inline.
+- `lua/tajbanana/set.lua` — Core Vim options and global keymaps (leader = Space). Loaded first, before plugins. It initializes core helpers; plugin-specific helpers are initialized by their plugin specs.
 - `lua/plugins/` — Each file returns a lazy.nvim plugin spec table (or list of tables). Lazy auto-loads all files in this directory.
 
-**`lua/tajbanana/` modules** (standalone Lua, not plugin specs; each keeps one concern out of `set.lua`):
+**`lua/tajbanana/` modules** (standalone Lua helpers, not plugin specs):
 - `forge.lua` — **forge shortcuts** (`<leader>gm` open/create PR/MR, `<leader>gl` open file/line in the browser). GitHub vs GitLab is detected per buffer from the *remote host*, not from the machine, so one config serves a personal GitHub box and a work GitLab one. All URL-shape differences live in the `FORGES` table; adding a forge means adding an entry, not another module.
 - `env.lua` — PATH bootstrapping for node (nvm lazy-load, honouring nvm's `default` alias) and cargo/rustc (rustup) when they're missing from PATH, plus a SDKMAN JDK override that runs even when `java` already resolves.
 - `terminal.lua` — the F2 bottom terminal-split toggle.
+- `indent_scope.lua` — cursor-based indent-blankline scope lookup for Kotlin, TypeScript/TSX, JavaScript/JSX, and YAML; initialized from `ui.lua`. Skips single-line scopes except Kotlin properties. Regression checks: `scripts/tests/indent_scope.lua`.
 - `incremental_selection.lua` — treesitter incremental selection (`<M-Up>`/`<M-Down>`); the node stack is buffer-scoped.
 - `gitutil.lua` — shared git-toplevel resolution (used by `forge.lua`, `repo_diagnostics.lua`, and `plugins/git.lua`).
 - `platform.lua` — OS detection (`mac` / `wsl` / `linux` / `windows` booleans plus a mutually exclusive `name`). Note WSL is *also* Linux, and nvim has no per-distro flag — Ubuntu/Debian/Arch all report `linux`. Every OS test in the config goes through here.
@@ -68,9 +69,9 @@ git config --global --add include.path ~/.config/nvim/git/delta.gitconfig
 
 ## Validating Changes
 
-There is no build/test/lint step. To verify changes work:
+There is no build step or unified test runner. Focused Lua regression checks live in `scripts/tests/`; use each script’s run instructions. For indent scope changes, follow the prerequisites and command in [readme.md](readme.md#validating-changes). Also verify interactively:
 1. Open Neovim and check for errors: `:messages`
 2. Run `:checkhealth` to verify plugin health
 3. Run `:Lazy` to check plugin status and sync if needed
 4. For LSP changes: `:LspInfo` to verify server attachment
-5. For treesitter changes: `:TSInstallInfo` to check parser status
+5. For treesitter changes: `:lua =require("nvim-treesitter").get_installed()` to list installed parsers

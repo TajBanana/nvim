@@ -31,7 +31,7 @@ brew install neovim ripgrep tree-sitter-cli lazygit gh
 brew install --cask font-jetbrains-mono-nerd-font   # matches .wezterm.lua
 ```
 
-Portability notes: the node PATH fix looks for nvm in `~/.nvm` (a system node on PATH also works); the cargo PATH fix tries `~/.cargo/bin` first and then Homebrew's rustup prefix (`/opt/homebrew/opt/rustup/bin`), so it covers a standard rustup install on Linux/WSL as well as macOS — but it only helps if a toolchain is actually installed; the lazygit *color theme* lives in lazygit's own config outside this repo, so `Space lg` works everywhere but only matches this palette if you theme it separately.
+Portability notes: the node PATH fix looks for nvm in `~/.nvm` (a system node on PATH also works); the cargo PATH fix tries `~/.cargo/bin` first and then Homebrew's rustup prefix (`/opt/homebrew/opt/rustup/bin`), so it covers a standard rustup install on Linux/WSL as well as macOS — but it only helps if a toolchain is actually installed; the lazygit theme is provided in `lazygit/config.yml`; symlink it to `~/.config/lazygit/config.yml` to use the matching palette.
 
 ## Setup
 
@@ -185,10 +185,11 @@ Configured in [lua/plugins/ui.lua](lua/plugins/ui.lua), with cursor lookup and s
 ## Repo layout
 
 - `init.lua` — loads core settings, then bootstraps lazy.nvim
-- `lua/tajbanana/set.lua` — core Vim options and global keymaps (leader = Space); wires in the feature modules below
-- `lua/tajbanana/` modules — each keeps one concern out of `set.lua`: `forge.lua` (**forge shortcuts**, GitHub/GitLab auto-detected, see below), `platform.lua` (OS detection), `repo_diagnostics.lua` (the `Space xr` repo-wide linter), `env.lua` (node/cargo PATH fixes), `terminal.lua` (F2 terminal toggle), `incremental_selection.lua` (`M-Up`/`M-Down` node selection), `gitutil.lua` (shared git-root helper), `git_pickers.lua` (the `Space gc`/`gh` commit-history pickers), `definition_picker.lua` (the `Space gd` picker), `inlay_tint.lua` (per-kind inlay colouring), `lsp_status.lua` (the statusline LSP-load indicator)
+- `lua/tajbanana/set.lua` — core Vim options and global keymaps (leader = Space); initializes core helpers. Plugin-specific helpers are loaded by their plugin specs
+- `lua/tajbanana/` modules — reusable feature helpers: `forge.lua` (**forge shortcuts**, GitHub/GitLab auto-detected, see below), `platform.lua` (OS detection), `repo_diagnostics.lua` (the `Space xr` repo-wide linter), `env.lua` (node/cargo PATH fixes), `terminal.lua` (F2 terminal toggle), `incremental_selection.lua` (`M-Up`/`M-Down` node selection), `gitutil.lua` (shared git-root helper), `git_pickers.lua` (the `Space gc`/`gh` commit-history pickers), `definition_picker.lua` (the `Space gd` picker), `inlay_tint.lua` (per-kind inlay colouring), `lsp_status.lua` (the statusline LSP-load indicator), `indent_scope.lua` (custom cursor/scope lookup, initialized from `ui.lua`)
 - `lua/plugins/` — one lazy.nvim spec file per concern: `lsp`, `telescope`, `colorscheme`, `treesitter`, `formatting`, `editor`, `git`, `ui`, `kotlin`, `snacks`, `markdown`
 - `after/queries/` — custom Treesitter highlight queries per language
+- `scripts/tests/` — focused Lua regression checks; see each script’s run instructions
 
 ## Also in this repo
 
@@ -346,12 +347,7 @@ resolves your self-managed dir instead of a leftover Mason copy (it probes
 
 This **recurs** every ~30 days; the ⏱ (or the exit-code-7 log line) is the tell. (Because `Space gd` is wired in the `LspAttach` autocmd in `lsp.lua`, *any* server that fails to attach takes its keymaps down with it — the same log check applies to other languages too.)
 
-**`:MasonInstall` / `:Mason` → `E492: Not an editor command`.** Mason is lazy-loaded, so its commands only exist once the LSP stack has loaded — which happens when you open a file (`BufReadPre`). On the no-file start screen they aren't registered yet. Open any file first, or force the load:
-
-```
-:Lazy load nvim-lspconfig
-:MasonInstall jdtls
-```
+**`:MasonInstall` / `:Mason` → `E492: Not an editor command`.** The LSP stack is loaded at startup (`lazy = false`), so Mason commands should be available even before opening a file. Check `:messages` for startup errors and `:Lazy` for missing or failed plugins; opening a file is not required to register these commands.
 
 **Kotlin diagnostics never appear, even though the LSP is attached.** kotlin-lsp publishes **nothing on open** — it only analyses after the document changes. Measured: a correctly-attached client sat at zero diagnostics for **9 minutes**, then produced all of them the moment a single edit landed. So "wait longer" is the wrong remedy; type a character and delete it (`i`, space, `Backspace`, `Esc`) and they arrive within seconds. Confirm with `:lua =#vim.diagnostic.get(0)` before and after.
 
@@ -371,7 +367,7 @@ There is no build step. To verify things work interactively:
 2. `:checkhealth` — verify plugin health
 3. `:Lazy` — plugin status / sync
 4. `:LspInfo` — verify LSP server attachment
-5. `:TSInstallInfo` — check Treesitter parser status
+5. `:lua =require("nvim-treesitter").get_installed()` — list installed Treesitter parsers
 
 Run the committed indent scope regression checks from this repository after installing indent-blankline and the Kotlin, TypeScript, TSX, and YAML parsers. This harness currently looks in `~/.local/share/nvim/lazy/indent-blankline.nvim` and `~/.local/share/nvim/site`; custom data/install paths need corresponding changes in the harness:
 
