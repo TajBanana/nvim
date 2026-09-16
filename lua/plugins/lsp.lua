@@ -397,8 +397,6 @@ return {
             local cmp = require("cmp")
             local cmp_select = { behavior = cmp.SelectBehavior.Select }
 
-            local completion = require("tajbanana.completion")
-
             cmp.setup({
                 snippet = {
                     expand = function(args)
@@ -419,7 +417,7 @@ return {
                     ["<Tab>"] = cmp.mapping(function(fallback)
                         local luasnip = require("luasnip")
                         if cmp.visible() then
-                            if not completion.confirm(cmp, true) then fallback() end
+                            if not cmp.confirm({ select = true }) then fallback() end
                         elseif luasnip.locally_jumpable(1) then
                             luasnip.jump(1)
                         else
@@ -435,7 +433,7 @@ return {
                         end
                     end, { "i", "s" }),
                     ["<CR>"] = cmp.mapping(function(fallback)
-                        if not completion.confirm(cmp, false) then fallback() end
+                        if not cmp.confirm({ select = false }) then fallback() end
                     end),
                     ["<C-Space>"] = cmp.mapping.complete(),
                 }),
