@@ -103,8 +103,20 @@ return {
         -- ibl manages the @ibl.* namespace itself, so a custom group is the
         -- reliable way to recolour the scope.
         opts = {
-            scope = { show_start = false, show_end = false, highlight = { "IblScope" } },
+            scope = {
+                show_start = false,
+                show_end = false,
+                highlight = { "IblScope" },
+                include = { node_type = require("tajbanana.indent_scope").include },
+                -- YAML block_node starts at the children, one level too deep.
+                -- Anchor its guide at the owning mapping key or sequence item.
+                exclude = { node_type = { yaml = { "block_node" } } },
+            },
         },
+        config = function(_, opts)
+            require("tajbanana.indent_scope").setup()
+            require("ibl").setup(opts)
+        end,
     },
     {
         "nvim-tree/nvim-tree.lua",

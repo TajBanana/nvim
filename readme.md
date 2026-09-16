@@ -155,6 +155,15 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 
 ## Feature guides
 
+**Indent scope highlighting.** indent-blankline draws a muted rose guide for the selected Treesitter scope, with scope start/end underlines disabled. For Kotlin, TypeScript/TSX, JavaScript/JSX, and YAML, custom lookup uses the cursor position (or the first nonblank character when in leading whitespace) instead of including the entire line prefix. Other filetypes keep the plugin’s default lookup.
+
+- **Kotlin:** variable declarations, multiline calls and initializers, `try`/`catch`/`finally` blocks, and anonymous objects.
+- **TypeScript / JavaScript / React:** declarations, multiline calls, objects, arrays, type/interface/class/enum bodies, and multiline self-closing JSX components, alongside the plugin's existing block and JSX scopes.
+- **YAML:** guides anchor at the owning mapping key or sequence item; flow mappings and sequences are also supported. Scope endpoints are trimmed to the last content line so trailing blank lines or a following sibling cannot pull the highlight left. For `kafka → repository → image`, the guide on `image` aligns with `repository`.
+- In these languages, inline calls, objects, and callbacks fall back to the enclosing multiline scope so they do not hide its guide. Kotlin variable declarations remain selectable even on one line.
+
+Configured in [lua/plugins/ui.lua](lua/plugins/ui.lua), with cursor lookup and scope selection in [lua/tajbanana/indent_scope.lua](lua/tajbanana/indent_scope.lua). Restart Neovim after changing these settings. Highlighting depends on Treesitter: parser errors, including plain YAML parsing of `{{ ... }}` templates, can affect nearby guides. The YAML customization applies to the `yaml` filetype, not `helm` or `gotmpl`. Selecting a scope does not guarantee a visible guide on a single-line declaration.
+
 **Completion & snippets.** As you type, nvim-cmp suggests from the LSP, snippets, and the current buffer. `Tab` is the do-everything key: it confirms the highlighted suggestion, and once you've expanded a snippet it jumps through the placeholders (`Shift-Tab` goes back). `Enter` confirms only when you've actively selected an item. Snippets come from [friendly-snippets](https://github.com/rafamadriz/friendly-snippets) (~2k across languages) — the IntelliJ "live template" equivalent.
 
 **Inlay hints** show inferred types and parameter names inline (IntelliJ-style). They're on by default wherever the language server supports them — **TS/TSX/JS, Lua, Go, Rust, Kotlin, Java** — and toggle per buffer with `Space ti`. Python (pyright) and Bash (bashls) don't provide them.
@@ -356,10 +365,20 @@ Only one kotlin-lsp runs at a time machine-wide: a second `intellij-server` (eve
 
 ## Validating changes
 
-There is no build or test step. To verify things work:
+There is no build step. To verify things work interactively:
 
 1. `:messages` — check for startup errors
 2. `:checkhealth` — verify plugin health
 3. `:Lazy` — plugin status / sync
 4. `:LspInfo` — verify LSP server attachment
 5. `:TSInstallInfo` — check Treesitter parser status
+
+Run the committed indent scope regression checks from this repository after installing indent-blankline and the Kotlin, TypeScript, TSX, and YAML parsers. This harness currently looks in `~/.local/share/nvim/lazy/indent-blankline.nvim` and `~/.local/share/nvim/site`; custom data/install paths need corresponding changes in the harness:
+
+```sh
+nvim --headless -n -u NONE -i NONE -l scripts/tests/indent_scope.lua
+```
+
+The checks cover cursor positions in leading whitespace, nested multiline scopes, inline-call fallback, React props, YAML mappings/lists, Kotlin exception blocks, and unchanged cursor lookup for unrelated filetypes. YAML regression cases also inspect the rendered virtual-text overlay column with trailing blank lines and a following sibling. These are headless checks, not terminal screenshot comparisons.
+
+One-off project checks on 2026-09-16 sampled Kotlin, TypeScript/TSX, and YAML files in `kafka_apicurio`, `exploration-control-ui`, and `exploration-control-manager`. Those external projects and audit scripts are not part of the committed test suite. The checks exercised scope selection, not rendered guide placement; some TSX files and a YAML template had parser errors, so this was not a clean parse or visual-validation guarantee for every file.
