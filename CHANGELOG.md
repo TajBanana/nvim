@@ -3,10 +3,12 @@
 Notable changes to this Neovim configuration, newest first. Dates are taken
 from git history; entries before 2026 are reconstructed from commit messages.
 
-## Unreleased — Helm indent scope highlighting
+## Unreleased — Helm highlighting and incremental selection
 
 ### Fixed
 
+- Option/Alt-Up selection enters Helm's injected YAML tree, starts at content when the cursor is in leading whitespace, and stops at the outermost node instead of restarting. Visual selection rebuilding preserves expansion/shrink history.
+- YAML/Helm entry and block selections include first-line indentation and list markers. Helm expansions include complete templated values and bridge from expressions to their enclosing YAML entries. Equivalent visible ranges are skipped, and UTF-8 selection endpoints stay on character boundaries.
 - Apply YAML scope selection and endpoint trimming to Helm's injected YAML. Moving into `{{ ... }}` within a YAML value keeps the surrounding mapping or list guide highlighted.
 - Anchor Helm lookup at the line's first nonblank character; standalone Go-template directives do not receive a separate template scope guide.
 

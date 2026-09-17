@@ -155,6 +155,10 @@ Leader is `Space`. "n" = normal mode, "i" = insert, "x" = visual.
 
 ## Feature guides
 
+**Incremental selection (`Option-Up` / `Option-Down` on macOS).** `Alt-Up` starts at the syntax node under the cursor and expands through larger parent ranges; `Alt-Down` shrinks through the selection history. Leading whitespace starts at the first nonblank character. Helm uses the injected YAML tree on YAML keys and the Go-template tree inside expressions. At the outermost node, further expansion keeps the selection unchanged. Leaving visual mode or editing resets the history; missing parsers leave the shortcut inactive.
+
+YAML/Helm entry and block selections include the first line's leading whitespace and list marker; the initial scalar/word selection remains precise. Expanding a Helm entry includes its complete unquoted `{{ ... }}` value, and expansion from inside an expression passes through the enclosing YAML entry before larger blocks. Ancestors that produce the same visible selection are skipped, so shrinking retraces distinct selections without invisible steps.
+
 **Indent scope highlighting.** indent-blankline draws a muted rose guide for the selected Treesitter scope, with scope start/end underlines disabled. For Kotlin, TypeScript/TSX, JavaScript/JSX, and YAML, custom lookup uses the cursor position (or the first nonblank character when in leading whitespace) instead of including the entire line prefix. Helm uses the line anchor described below. Other filetypes keep the plugin’s default lookup.
 
 - **Kotlin:** variable declarations, multiline calls and initializers, `try`/`catch`/`finally` blocks, and anonymous objects.
@@ -377,6 +381,8 @@ Run the committed indent scope regression checks from this repository after inst
 ```sh
 nvim --headless -n -u NONE -i NONE -l scripts/tests/indent_scope.lua
 ```
+
+For incremental selection, run `nvim --headless -n -u NONE -i NONE -l scripts/tests/incremental_selection.lua`. It requires the YAML and Helm parsers/queries in `~/.local/share/nvim/site` and checks expansion, shrinking, root stability, first-line indentation, complete Helm values, nested/multiline actions, UTF-8 endpoints, and missing-parser fallback. Fixture cursor sweeps verify that expansion contains the previous selection and shrinking restores it exactly.
 
 The checks cover cursor positions in leading whitespace, nested multiline scopes, inline-call fallback, React props, YAML mappings/lists, Kotlin exception blocks, and unchanged cursor lookup for unrelated filetypes. YAML regression cases also inspect the rendered virtual-text overlay column with trailing blank lines and a following sibling. Helm cases check overlay columns while moving across keys, list entries, and embedded template expressions. These are headless checks, not terminal screenshot comparisons.
 
