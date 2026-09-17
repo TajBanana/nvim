@@ -20,7 +20,7 @@ Requires Neovim v0.11+ (uses the `vim.lsp.config`/`vim.lsp.enable` native LSP AP
 - `forge.lua` — **forge shortcuts** (`<leader>gm` open/create PR/MR, `<leader>gl` open file/line in the browser). GitHub vs GitLab is detected per buffer from the *remote host*, not from the machine, so one config serves a personal GitHub box and a work GitLab one. All URL-shape differences live in the `FORGES` table; adding a forge means adding an entry, not another module.
 - `env.lua` — PATH bootstrapping for node (nvm lazy-load, honouring nvm's `default` alias) and cargo/rustc (rustup) when they're missing from PATH, plus a SDKMAN JDK override that runs even when `java` already resolves.
 - `terminal.lua` — the F2 bottom terminal-split toggle.
-- `indent_scope.lua` — cursor-based indent-blankline scope lookup for Kotlin, TypeScript/TSX, JavaScript/JSX, and YAML; initialized from `ui.lua`. Skips single-line scopes except Kotlin properties. Regression checks: `scripts/tests/indent_scope.lua`.
+- `indent_scope.lua` — cursor-based indent-blankline scope lookup for Kotlin, TypeScript/TSX, JavaScript/JSX, YAML, and Helm’s injected YAML; initialized from `ui.lua`. Skips single-line scopes except Kotlin properties. Regression checks: `scripts/tests/indent_scope.lua`.
 - `incremental_selection.lua` — treesitter incremental selection (`<M-Up>`/`<M-Down>`); the node stack is buffer-scoped.
 - `gitutil.lua` — shared git-toplevel resolution (used by `forge.lua`, `repo_diagnostics.lua`, and `plugins/git.lua`).
 - `platform.lua` — OS detection (`mac` / `wsl` / `linux` / `windows` booleans plus a mutually exclusive `name`). Note WSL is *also* Linux, and nvim has no per-distro flag — Ubuntu/Debian/Arch all report `linux`. Every OS test in the config goes through here.

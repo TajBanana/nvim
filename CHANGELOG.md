@@ -3,6 +3,17 @@
 Notable changes to this Neovim configuration, newest first. Dates are taken
 from git history; entries before 2026 are reconstructed from commit messages.
 
+## Unreleased — Helm indent scope highlighting
+
+### Fixed
+
+- Apply YAML scope selection and endpoint trimming to Helm's injected YAML. Moving into `{{ ... }}` within a YAML value keeps the surrounding mapping or list guide highlighted.
+- Anchor Helm lookup at the line's first nonblank character; standalone Go-template directives do not receive a separate template scope guide.
+
+### Added
+
+- Headless regression checks for actual guide columns across Helm keys, list items, and embedded expressions, plus README troubleshooting and design notes.
+
 ## 2026-09-14 — Confirmed Kotlin LSP fallback updates
 
 ### Changed

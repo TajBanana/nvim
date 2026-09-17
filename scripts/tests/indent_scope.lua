@@ -16,7 +16,7 @@ local function buffer(lang, ft, lines)
     vim.api.nvim_set_current_buf(buf)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     vim.bo.filetype = ft
-    assert(not vim.treesitter.get_parser(buf, lang):parse()[1]:root():has_error())
+    assert(not vim.treesitter.get_parser(buf, lang):parse(true)[1]:root():has_error())
     return buf
 end
 local function expect(row, col, kind, start_row)
@@ -100,6 +100,21 @@ expect(5, 0, 'catch_block', 4)
 expect(7, 0, 'finally_block', 6)
 expect(10, 0, 'object_literal', 10)
 expect(12, 0, 'anonymous_initializer', 11)
+local function expect_guide(buf, row, expected)
+    require('ibl').refresh(buf)
+    local marks = vim.api.nvim_buf_get_extmarks(buf, vim.api.nvim_create_namespace('indent_blankline'),
+        { row - 1, 0 }, { row - 1, -1 }, { details = true })
+    local columns = {}
+    for _, mark in ipairs(marks) do
+        local col = 0
+        for _, chunk in ipairs(mark[4].virt_text or {}) do
+            if vim.inspect(chunk[2]):find('@ibl.scope', 1, true) then columns[#columns + 1] = col end
+            col = col + vim.fn.strdisplaywidth(chunk[1])
+        end
+    end
+    assert(vim.deep_equal(columns, { expected }), 'wrong guide column: ' .. vim.inspect(columns))
+    checks = checks + 1
+end
 -- Inspect the actual overlay column, not just the selected syntax node.
 for _, suffix in ipairs({ {}, { '' }, { '', '', 'other:', '  image: other' } }) do
     local lines = { 'kafka:', '  repository:', '    image: apache/kafka', '    tag: "4.3.1"' }
@@ -109,19 +124,40 @@ for _, suffix in ipairs({ {}, { '' }, { '', '', 'other:', '  image: other' } }) 
     vim.bo.tabstop = 4
     expect(3, 4, 'block_mapping_pair', 2)
     assert(scope.get(buf, config):end_() == 3, 'YAML scope must end on tag, not a blank line or sibling')
-    require('ibl').refresh(buf)
-    local marks = vim.api.nvim_buf_get_extmarks(buf, vim.api.nvim_create_namespace('indent_blankline'),
-        { 2, 0 }, { 2, -1 }, { details = true })
-    local columns = {}
-    for _, mark in ipairs(marks) do
-        local col = 0
-        for _, chunk in ipairs(mark[4].virt_text or {}) do
-            if vim.inspect(chunk[2]):find('@ibl.scope', 1, true) then columns[#columns + 1] = col end
-            col = col + vim.fn.strdisplaywidth(chunk[1])
-        end
+    expect_guide(buf, 3, 2)
+end
+local helm_lines = {
+    'apiVersion: apps/v1',
+    'kind: Deployment',
+    'metadata:',
+    '  name: {{.Release.Name}}-kafka',
+    'spec:',
+    '  template:',
+    '    spec:',
+    '      containers:',
+    '      - name: kafka',
+    '        image: "{{.Values.kafka.repository.image}}:{{.Values.kafka.repository.tag}}"',
+    '        ports:',
+    '        - name: client',
+    '          containerPort: {{.Values.kafka.ports.client}}',
+    '        - name: controller',
+    '          containerPort: {{.Values.kafka.ports.controller}}',
+    '',
+}
+local helm = buffer('helm', 'helm', helm_lines)
+vim.bo.shiftwidth = 4
+vim.bo.tabstop = 4
+for _, case in ipairs({
+    { 4, 'block_mapping_pair', 3, 0 },
+    { 10, 'block_sequence_item', 9, 6 },
+    { 13, 'block_sequence_item', 12, 8 },
+    { 15, 'block_sequence_item', 14, 8 },
+}) do
+    -- Include cursor positions inside the template expressions, not only keys.
+    for col = 0, #helm_lines[case[1]] - 1 do
+        expect(case[1], col, case[2], case[3])
+        expect_guide(helm, case[1], case[4])
     end
-    assert(vim.deep_equal(columns, { 2 }), 'guide must align with repository: ' .. vim.inspect(columns))
-    checks = checks + 1
 end
 vim.bo.filetype = 'lua'
 assert(scope.get_cursor_range(0)[2] == 0, 'unrelated filetypes must keep original cursor lookup')
