@@ -536,6 +536,16 @@ builtin vs named types can't be told apart at this layer.
 
 ---
 
+## Indent guides: YAML and Helm scope boundaries
+
+**Context.** Selecting the correct syntax node did not guarantee correct guide placement. YAML nodes can end at column zero after trailing blank lines or at the next sibling. indent-blankline reads that endpoint as an inclusive line and uses the smaller indentation of the first and last lines, pulling the guide toward the left margin. Helm also exposes YAML through an injected language tree; handling only the `yaml` filetype left chart templates without the same correction.
+
+**Decision.** `lua/tajbanana/indent_scope.lua` selects multiline mapping pairs and sequence items, then presents a trimmed endpoint to indent-blankline through a node wrapper. The syntax tree and file contents remain unchanged. In `helm` buffers, cursor lookup anchors at the first nonblank character of the line so an embedded `{{ ... }}` value does not switch lookup away from the surrounding YAML key or list marker.
+
+**Validation and limits.** `scripts/tests/indent_scope.lua` checks both scope selection and rendered virtual-text columns, including trailing blank lines, following siblings, and cursor movement through Helm expressions. Helm's parser and YAML injection queries must be installed. These are headless overlay checks, not terminal screenshots. Template-only directives have no separate Go-template scope guide, and malformed syntax can still limit the injected tree. The wrapper depends on indent-blankline's internal scope API, so plugin updates should be checked with this test script.
+
+---
+
 ## Markdown: in-buffer rendering, browser preview declined
 
 **Context.** `.md` files (this repo's own readme/CHANGELOG/docs, plus notes)

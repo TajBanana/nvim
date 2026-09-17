@@ -7,6 +7,7 @@ local languages = {
     javascript = "javascript",
     javascriptreact = "javascript",
     yaml = "yaml",
+    helm = "yaml", -- Helm injects YAML around its Go-template expressions.
 }
 
 local web_nodes = {
@@ -73,6 +74,9 @@ function M.setup()
         local pos = vim.api.nvim_win_get_cursor(win)
         local line = vim.api.nvim_buf_get_lines(buf, pos[1] - 1, pos[1], false)[1] or ""
         local col = math.max(pos[2], #(line:match("^%s*") or ""))
+        -- Keep the YAML guide while moving through an embedded {{ ... }}
+        -- expression: anchor on the mapping key/list marker on this line.
+        if vim.bo[buf].filetype == "helm" then col = #(line:match("^%s*") or "") end
         return { pos[1] - 1, col, pos[1] - 1, col }
     end
 
