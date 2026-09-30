@@ -2,11 +2,13 @@
 # (see lua/plugins/colorscheme.lua). Included from ~/.gitconfig rather than
 # written into it, so `git config --global` edits and this file never fight:
 #
-#   git config --global include.path ~/.config/nvim/git/delta.gitconfig
+#   git config --global --add include.path ~/.config/nvim/git/delta.gitconfig
+#
+# (--add appends, so any include.path you already have is kept.)
 #
 # Applies to terminal git only. Inside Neovim, gitsigns' own diff (Space dv) and
 # the Telescope git pickers are separate -- the pickers call delta explicitly,
-# see lua/plugins/telescope.lua.
+# see lua/tajbanana/git_pickers.lua.
 
 [core]
 	pager = delta
