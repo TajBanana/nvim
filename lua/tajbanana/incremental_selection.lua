@@ -51,7 +51,9 @@ local function node_range(node)
     -- Entries and blocks should copy with their first line's indentation (and
     -- list marker), rather than starting halfway across that line. Scalar word
     -- selections remain precise until expansion reaches an entry.
-    if (vim.bo.filetype == "yaml" or vim.bo.filetype == "helm") and yaml_blocks[node:type()] then
+    -- "yaml" plus its compound filetypes (yaml.helm-values, yaml.gitlab, ...).
+    local ft = vim.bo.filetype
+    if (ft == "helm" or ft == "yaml" or vim.startswith(ft, "yaml.")) and yaml_blocks[node:type()] then
         sc = 0
         if sr == er then
             ec = #(vim.api.nvim_buf_get_lines(0, er, er + 1, false)[1] or "")
