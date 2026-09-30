@@ -3,6 +3,79 @@
 Notable changes to this Neovim configuration, newest first. Dates are taken
 from git history; entries before 2026 are reconstructed from commit messages.
 
+## Unreleased — Review findings
+
+### Added
+
+- `:KotlinLspRollback`: the updater keeps the build it replaced as `previous` (older builds pruned) and rollback swaps back after checking the previous build still starts; it refuses when that build has expired, is already current, or is gone, and a failed swap is undone. Old builds are not pruned while a server launched through a `current` path is running, without a process list, or after `current` was left dangling; a build a server was started from directly (by an absolute path, even a symlinked one) is kept. (Servers launch through the `current` symlink; a brief resolved-path launch on this branch was reverted.)
+- `Space rf` (and every other `vim.ui.input` prompt) asks in a floating box at the cursor, pre-filled with the current name, instead of the command line — snacks.nvim's `input` module.
+- `Space xr` detectors: `golangci-lint` (preferred over `go vet`; v2 run with `--path-mode=abs`), `helm lint` for charts (helm v3 and v4 template errors jump to the real `file:line` inside the message, v4's continuation lines are kept, a rendered-output `line N` is labelled as such, directory entries land on `Chart.yaml`), `hadolint` for Dockerfiles (tracked-but-deleted files, `Dockerfile.dockerignore` and duplicate conflict entries skipped; non-ASCII paths kept), `yamllint` when a `.yamllint` config exists.
+- Formatters: Python (`ruff_organize_imports` + `ruff_format`), Go (`goimports` + `gofumpt`), sh/bash (`shfmt`), Markdown (`prettier`). mason-tool-installer now installs all formatters and `Space xr` linters automatically on every machine that can install them; the toolchain-built ones are skipped where they cannot install (`goimports`/`gofumpt` without `go`, `prettier` without `npm`, `yamllint` without a python3 that can create venvs — checked without spawning python3 once yamllint is installed). gopls is likewise skipped without `go`.
+- `yaml.helm-values` (chart values files, so helm_ls attaches), `yaml.docker-compose` and `yaml.gitlab` filetypes.
+- `smartcase` searching.
+- `scripts/tests/run_all.sh` runs every regression check (each file's `Run:` header) with a pass/fail summary; new checks for repo lint (reporting which tool-gated checks it skipped), inlay tint, tailwind root detection and the `Space gl` permalink guards (with a fake clipboard, so the suite never overwrites yours); compound-YAML filetypes in the incremental-selection and indent-scope checks, each shown to fail against the pre-fix code; Kotlin flow checks now assert WARN vs ERROR.
+
+### Changed
+
+- `Space gl` opens and copies a **commit-SHA permalink** instead of a branch URL, refusing when HEAD is unpushed or the file is not in HEAD, warning on uncommitted edits, and working on a detached HEAD and through a symlink into the repo. It only claims "copied" after reading the clipboard back, once a Linux/WSL clipboard tool's copy has settled.
+- The `colorcolumn` ruler moved from column 100 to 80 (now part of the editor commit, 5b90a99).
+- `Space gi` and `Space vws` open Telescope pickers (implementations; live project-wide symbol search).
+- `automatic_enable` is an allow-list equal to the configured servers: leftover Mason packages (emmet_ls, gradle_ls, sqlls, the stylua formatter's LSP wrapper) no longer attach. tailwindcss now actually runs, but only in Tailwind projects (upstream's root markers minus the bare `.git` fallback, checked in one upward walk: postcss configs and Phoenix/Rails lockfiles count only when they mention tailwind; Django's `theme/static_src/`, monorepo roots and `deno.json` are found).
+- `Space xr` lints the nearest project containing the current file (monorepo sub-projects), bounded by the git root, with all of a tool's markers equal (a nearer `tsconfig.json` beats a root `package.json`); eslint/tsc hoisted to a workspace root are found.
+- `vim.notify` messages show as fidget toasts and other messages go through Neovim 0.12's `ui2`, so `cmdheight=0` no longer raises "Press ENTER" prompts.
+- Commenting uses Neovim's built-in `gc`/`gcc`; Comment.nvim removed.
+- `Space td` previews the hunk under the cursor inline (`preview_hunk_inline`; `toggle_deleted` is deprecated).
+- lazygit: the repo's `lazygit/config.yml` was rebuilt from the live macOS config and is always used by `Space lg` (`-ucf`); on macOS the live file is now a symlink to it. Its theme keeps the colours the repo file had on `main`, which match Neovim's git gutter (the live file's stock Material accents were reverted). Its delta command passes `--dark` (delta cannot detect the background inside lazygit) and the side-by-side layout explicitly, so it no longer depends on the gitconfig include.
+- The forced repaint on scroll/line-count changes is throttled to one per 30 ms.
+- Minimum Neovim is documented as 0.12 (it already was in practice).
+- Documented why `lua/tajbanana/completion.lua` (skip one `)` after accepting a value) is not wired into nvim-cmp: added in 3741eea/c6962e8 to smooth method chaining, unwired in 051f59d because on multi-parameter calls accepting the first argument jumps out of the parentheses. The module and its test are kept on purpose.
+
+### Fixed
+
+- Round 9: `Space xr` reports a linter killed by a signal (a crash, the OOM killer, the timeout) as a failure, not "found no issues", and lists every failing chart of a Helm schema error (a sub-chart's used to vanish when the parent failed too).
+- Round 9: `Space gl`/`gm` link IP-address, one-word intranet and punycode-TLD ssh remotes again (round 8 refused them); `Space gm` uses the branch's own name when the remote has it (a branch created from `origin/main` got a "create PR from main" page).
+- Round 9: the Kotlin update popups wait out the `q:` command window (opening there failed and left the update holding its lock).
+- Round 9: `gc`/`gcc` in Helm templates now use `{{/* */}}` on YAML lines and ranges too (round 8 only fixed lines starting with `{{`); the Flow check reads only the file's leading comments, including star-less `/* */` blocks.
+- Round 8: the npm statusline gate now works for all nine servers (it missed ts_ls, jsonls, yamlls, cssls and html); the ts_ls Flow veto needs a real `@flow` pragma (an `@flowio/…` import no longer turns ts_ls off) (a pragma after code, or in a star-less block, only from round 9); tailwind's `$HOME` bound holds for new files under a symlinked home.
+- Round 8, `Space xr`: a clean package beside a failing one reports "no issues" (not a tool error); a tsc that never ran reports its real failure; any tsconfig that does not compile the edited file (inherited, solution-style, a narrow `include`) is reported instead of "no issues"; a broken `extends` is an entry; an unsaved or deleted open Dockerfile no longer aborts hadolint; a sub-chart's schema failure lands on the sub-chart's `values.yaml` (when the parent failed too, only from round 9).
+- Round 8, git: `Space dv` in the whole-branch view is read-only (`:w` in it staged the fork-point text, reverting the branch in the index); an A→B→A branch switch with slow git settles on A's fork point; `:saveas` out of a repo releases its watchers; `Space gc`/`gh` use the file's repo and delta outranks a user's `pager.show`/`GIT_PAGER`.
+- Round 8, Kotlin: the confirmation popups wait for plain Normal mode (Insert-mode `<C-o>` and operator-pending let typed keys answer them); after an Open VSX fallback an update no longer re-downloads the expired GitHub build or asks again for the build already current; a relative `KOTLIN_LSP_HOME` is resolved at startup.
+- Round 8, `Space gl`/`gm`: `ssh.github.com` with an IP `HostName` works again; dotted aliases whose `HostName` is github.com/gitlab.com resolve; `-F` in `core.sshCommand` is honoured; an alias with no `HostName` is refused (not linked as the alias); an unreachable remote says so (not "push first"); `Space gm` also tries the upstream branch name (round 9: only as a second choice after the branch's own name).
+- Round 8, editor: `gc`/`gcc` work on Helm and gotmpl files.
+- `Space gl`: an unpushed HEAD no longer freezes Neovim on a remote with many refs (one ancestry check for all of them, not one per ref); a `GIT_SSH` wrapper is respected; `work.github.com`-style ssh aliases resolve; `Space gm`'s fallback is time-limited too.
+- `Space xr`: tsc checks the package it reports on (an inherited parent project that skips the package is reported, not "no issues" -- round 8 generalised this to the edited file, for every tsconfig); every entry has a severity; tsc's chained reasons and the chart schema details are kept; hadolint messages are one line; a second `Space xr` while one runs is refused.
+- `Space gB` turned back on while a refresh overlaps it applies the fork-point base (it could stay on the index and warn "no main/master").
+- `Space gc` / `Space gh` previews work without delta even when the global git pager is delta.
+- The statusline no longer shows a red ✗ for npm-built servers on a machine without npm (for five of the nine only since round 8; see above).
+- Kotlin: rollback accepts a `previous` build outside the install dir; an update after `current` was left dangling prunes nothing (it could delete the only working build); a relative `KOTLIN_LSP_HOME` works after `:cd` (resolved at startup since round 8; before, at the lazy plugin load).
+- A treesitter parser installed mid-session now highlights buffers already open (the old listener fired when an install started, not when it finished).
+- `Space gd` opens after 3 s with whatever arrived (naming servers that did not answer) instead of waiting forever, and a location returned as both definition and type keeps both tags.
+- `Space gc` / `Space gh` previews show merge commits (against their first parent) and root commits correctly, work without delta, and choose side-by-side from the preview pane's width.
+- Kotlin: a first install through `:KotlinLspUpdate` attaches without restarting Neovim; an old build's expiry no longer shows ⏱ for a freshly updated build.
+- `Space gl`: the remote check runs non-interactively with a 5 s limit on the network call (a hanging ssh prompt no longer errors or leaves a process), a remote tip that descends from HEAD counts as pushed, and a clipboard tool that fails after the copy is reported.
+- `Space xr`: cargo workspace members resolve paths against the workspace root; tsc runs in a package that inherits a parent's tsconfig.json.
+- A parser installed mid-session is found on a fresh machine too; the gutter no longer applies a stale branch's base when HEAD moves twice quickly, and its watchers no longer leak after `:saveas` or a wipe during a refresh.
+- Kotlin: kotlin-lsp launches through the `current` symlink (a resolved-path launch tried on this branch made updates and rollbacks relaunch the old build, and was reverted); pruning can no longer delete a build a running server uses (a SIGPIPE false negative, unresolved paths) and prunes nothing while any server runs through `current` or without a process list; an update that fails to activate no longer leaves `current` switched or a stray `previous`; an exported `KOTLIN_LSP_DIR` is respected.
+- `Space gl`: real ssh host names are kept (only aliases are resolved through ssh config); pushes from single-branch/shallow clones are recognised; names with a leading space or control characters link correctly.
+- `Space xr`: a broken sub-chart `values.yaml`/`Chart.yaml` is reported on the sub-chart; tsc needs the project's `tsconfig.json`; nested `node_modules`/dot-dirs are skipped outside git.
+- F2 as the only split no longer fails when a floating window (ui2, fidget) is open; gutter watchers are closed when a repo's last buffer is wiped (a `:bdelete`d buffer is unlisted and unloaded, not wiped, and keeps them); LSP installs are gated on a fresh machine too; timed-out `Space gd` requests are cancelled; `valuesfoo.yaml` is no longer a helm values file.
+- The whole-branch gutter refresh no longer freezes the editor (every git call is async), uses the repo gitsigns diffs against (symlinked files, nested repos), watches repos opened before their first commit, and no longer stacks autocmds on `:edit`.
+- `Space gl`: the "copied" check now works with Linux/WSL clipboard tools; glob characters in file names, ssh host aliases, http(s) ports, NFD file names on macOS and characters like `[ ] { } \` are handled; a global `nvim.forge` no longer re-labels other repos.
+- `Space xr`: outside git only the file's directory counts; a new file in a missing directory no longer lints nvim's cwd; more helm output shapes (spaces, sub-chart names, `.tgz`, columns, `:` in paths, broken `values.yaml`); golangci-lint log lines, `FORCE_COLOR` for ruff, `Dockerfile.md`-style files and gitignored Dockerfiles handled.
+- tailwindcss no longer roots at `$HOME` because of a `~/package.json`; npm/go/pypi/cargo-built LSP servers are not retried on machines without the toolchain; `:MasonToolsClean` is disabled (it would uninstall every LSP server).
+- F2: no `E444` when the terminal is the only window, no second window in a tab that already shows it, and dead terminals no longer pile up. Nested chart `templates/templates/` files are helm; any `yaml.*` filetype gets YAML indent scopes; an unknown lazygit theme key removed; `run_all.sh` shows the failing line.
+- Open buffers kept the previous branch's fork point after a branch switch; the whole-branch gutter base is now re-applied whenever HEAD moves — including a rebase or commit in a terminal, which gitsigns' events never reported — by watching each repo's git dir; the check is async and re-diffs only when the fork point changed. A `Space gB` opt-out survives `:e`, and re-opening after `main` moves re-pins the base.
+- nvim-surround, gitsigns, git-blame and indent-blankline did not load in brand-new files (`BufNewFile`).
+- The indent-scope guide ignored `{ ... }` tables in Lua (and dicts/lists/calls in Python): inside a `vim.lsp.config("x", { ... })` spec it marked the enclosing function instead of the table.
+- `:KotlinLspUpdate` did not exist until a Kotlin file was opened.
+- `Space xr` failed on ESLint 9 (`-f unix` was removed); it now uses JSON output.
+- F2 reopened a dead terminal after the shell exited non-zero (and no longer closes another tab that shows the dead terminal).
+- `Space go` handed fake paths from special buffers to the OS opener (on WSL, a random Explorer window); it now refuses them (including scratch buffers named after a real file) and opens the node under the cursor in nvim-tree.
+- Inside a chart's `templates/`, `docker-compose.yml` / `.gitlab-ci.yml` got the compose/CI filetype instead of `helm`, depending on rule order.
+- Inlay hints sharing a position could get each other's colour.
+- `:checkhealth lazy` reported a luarocks ERROR although no plugin needs it (`rocks.enabled = false`).
+- Docs: wrong WezTerm font sizes, lazygit symlink path on macOS, stylua drift count, nvm fix location, the GitHub-only forge wording, `delta.gitconfig` header, stale module lists and the undocumented `starship.toml`.
+
 ## Unreleased — Helm highlighting and incremental selection
 
 ### Fixed
@@ -105,13 +178,16 @@ from git history; entries before 2026 are reconstructed from commit messages.
 ### Added
 - **git-delta side-by-side diffs** in all three places diffs are read:
   `lazygit/config.yml` (new, symlinked to `~/.config/lazygit/`) points lazygit's
-  pager at delta with `--width=variable` so the split tracks the panel;
+  pager at delta with `--width=variable` so the split tracks the panel
+  *(2026-09-29: measured in a pty at 60 and 120 columns, the split is the same
+  without it; the flag only stops delta padding line backgrounds)*;
   `git/delta.gitconfig` (new, `include`d from `~/.gitconfig`) covers terminal
   `git diff`/`show`/`add -p`; and `lua/tajbanana/git_pickers.lua` (new) adds
   `<leader>gc` (repo commits) and `<leader>gh` (current file's history), both
   previewed through delta. All three are themed to the Material Darker palette.
   The pickers drop to a unified diff below 120 columns, where a side-by-side
-  split is too narrow to read.
+  split is too narrow to read. *(2026-09-29: now measured on the preview pane,
+  100 columns.)*
 - **`<leader>go`** — open the current file in the OS default app. Now genuinely
   cross-platform: it goes through `vim.ui.open` (was a hardcoded macOS `!open`,
   which simply errored on Linux/WSL) and translates the path with `wslpath -w`

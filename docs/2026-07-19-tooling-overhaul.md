@@ -1,5 +1,15 @@
 # 2026-07-19 — Language tooling overhaul: report
 
+> **Status (2026-09-29): historical session report — kept as the record of what
+> was broken in July 2026 and why.** Details that no longer match the config:
+> kotlin-lsp is now self-managed outside Mason (`lua/plugins/kotlin.lua`,
+> `:KotlinLspUpdate`), not Mason-installed with a `cmd` override; the nvm fix
+> lives in `lua/tajbanana/env.lua` and honours nvm's `default` alias; `<leader>xx`
+> / `<leader>xb` open Telescope (Trouble is command-only); nvim-tree has a fixed
+> width of 40; Python formatting now uses ruff; sqlls is no longer enabled (LSP
+> servers are an allow-list); the TSX IntelliJ-parity colours were replaced by one
+> scheme. Current behaviour: `docs/design-decisions.md`, `readme.md`.
+
 A single session took this config from "several silently broken subsystems"
 to "verified working across 16 languages". This records what was broken, why,
 what was changed, and how each fix was verified.

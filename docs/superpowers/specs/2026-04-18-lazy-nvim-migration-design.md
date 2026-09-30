@@ -1,5 +1,15 @@
 # Neovim Config Migration: Packer to lazy.nvim + Native LSP
 
+> **Status (2026-09-29): historical design spec — the migration is done** and its
+> decision is recorded in `docs/design-decisions.md` ("Plugin manager: lazy.nvim").
+> Many details below have since changed: harpoon, Comment.nvim, undotree and
+> fugitive were removed or replaced; `<leader>gb` is blame.nvim; `<leader>fw` is
+> `live_grep`; Kotlin uses kotlin-lsp; formatting covers many more languages;
+> nvim-lspconfig and treesitter load with `lazy = false`; gitsigns/git-blame load
+> on `BufReadPre` + `BufNewFile`; lazy.nvim itself is pinned and restored with
+> `:Lazy restore`, not `:Lazy sync`. Still as specified: undodir, `splitright`,
+> LuaSnip + cmp_luasnip.
+
 ## Goal
 
 Migrate the Neovim configuration from Packer to lazy.nvim, replace lsp-zero with native 0.11 LSP APIs, and replace none-ls with conform.nvim.

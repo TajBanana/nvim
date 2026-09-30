@@ -1,5 +1,15 @@
 # TSX / TypeScript / Kotlin ↔ IntelliJ Material Darker color parity
 
+> **Status (2026-09-29): superseded.** The tsx/typescript/kotlin-scoped overrides
+> described here were replaced by one scheme applied identically in every language
+> (`lua/plugins/colorscheme.lua`; the switch is recorded in `docs/design-decisions.md`
+> "Colors"), so the mapping table below no longer matches (free functions are blue,
+> `@type` is yellow, params orange, properties grey-blue, methods `#5B8EFF`, TS
+> primitives cyan). Still in force from this work: the `after/queries/*` files —
+> the `useState`/`useReducer` setter capture (`@function.setter`, priority 130)
+> and the Kotlin annotation recolour to `@attribute` — now explained in
+> `docs/design-decisions.md`.
+
 > 2026-07-20 update: parity now also covers **plain TypeScript** (same rules
 > as tsx, `.typescript`-scoped, including primitive types like `string` as
 > purple italic and a `useState`-setter query for custom hooks) and

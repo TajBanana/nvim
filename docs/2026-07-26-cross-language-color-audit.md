@@ -1,5 +1,10 @@
 # 2026-07-26 — Cross-language color audit (20 languages)
 
+> **Status (2026-09-29): still matches `lua/plugins/colorscheme.lua`** (checked
+> capture by capture). "This commit" below is `4609cc3` (`feat(colors): one
+> consistent scheme…`). The LSP/grammar quirks in Finding 2 are runtime
+> observations and were not re-run.
+
 Multi-agent audit: one read-only sub-agent per language (20 parallel), each
 opening real `~/Documents` project files in headless nvim under a pty (to force
 decoration-provider rendering) with the language's LSP attached where one

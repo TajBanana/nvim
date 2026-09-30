@@ -1,5 +1,33 @@
 ## 2026-08-11 — code-review backlog (deferred findings)
 
+> **Status (2026-09-29, re-checked against the code):** B1–B6, B4b, the
+> Tailwind/Rust item, the `deviations-from-main.md:332` item and A1 are fixed.
+> **Still open:**
+> - **B7:** `<leader>gd` waits for every request with no timeout (a server that
+>   never answers shows nothing), and a location returned by both definition and
+>   type-definition keeps only the first tag (dedup ignores the kind).
+> - **B8:** the `<leader>gc`/`<leader>gh` preview uses `git diff <sha>^!` — empty for
+>   a merge commit, and against the working tree for a root commit
+>   (`git show --diff-merges=first-parent` works); it sets `core.pager=delta`
+>   without checking delta exists; side-by-side is chosen from `vim.o.columns`,
+>   not the preview width.
+> - Lows: `repo_diagnostics.lua` still assumes POSIX paths (containment, absolute
+>   checks); the WezTerm tab-title basename is POSIX-only; `.ideavimrc` maps
+>   GitHub-only actions (now acknowledged in a comment); `cli_jq` in `forge.lua`
+>   is a flag, not a query; an effectively dead guard in incremental selection;
+>   `<leader>xr` has no Java/Kotlin linter (intentional — too slow per keypress).
+>
+> **Follow-up (2026-09-29):** B7 fixed in `ab90a72` (3 s timeout with partial
+> results; every kind kept), B8 in `aee2d0a` (`git show --format=
+> --diff-merges=first-parent`, delta optional, pane width), and the lows in
+> `5b90a99, 315f3c3, c1e2d10` (Windows-safe lint paths — reasoned, not run on Windows; WezTerm
+> basename; `cli_jq` → `cli_url_field`). Left as they are: the GitHub-only
+> `.ideavimrc` actions (acknowledged in a comment), no Java/Kotlin linter (by
+> design), and the incremental-selection guard (harmless defence-in-depth).
+>
+> The `[[headless-nvim-verification-recipes]]` link below points at a note that
+> does not exist.
+
 From a `/code-review max` sweep of the whole repo, focused on how the code
 branches across OS environments. **Seven findings were fixed in `df21bb2`** (the
 four introduced on this branch plus the three most severe pre-existing ones).

@@ -1,5 +1,29 @@
 # Deviations from main
 
+> **Status (2026-09-29): historical record.** The `windows-config` branch this
+> describes no longer exists, `main` already contains its work (WSL domains in
+> `.wezterm.lua`, `lua/tajbanana/forge.lua`), and the config now also runs on
+> macOS. The commit hashes below were rewritten and no longer resolve. Still
+> accurate and useful: the WSL/Debian tool setup (Part B: apt Neovim too old,
+> `fdfind`/`batcat`, the nvm vs npm-prefix conflict, WezTerm nightly for
+> undercurl under ConPTY, `wl-clipboard` pulling in `xdg-open`), the lockfile
+> lesson (use `:Lazy restore`, not `:Lazy sync`), and the `.wezterm.lua`,
+> telescope `.gitlab/` ignore, `cmp-buffer`, env.lua and `unnamedplus` notes.
+> What has changed since it was written (the text below is left as written):
+> - **Neovim version (Part B):** it says the config "requires 0.11+". Since
+>   2026-09-28 the documented minimum is **0.12+**: the pinned nvim-treesitter
+>   `main` branch needs 0.12 (the 2026-09-28 review found it was already the
+>   practical minimum), and the config now also uses the 0.12-only `ui2` message
+>   UI. See the readme for the current requirement.
+> - **"The audit is not finished" (Part A) / the open-review list (Part E):**
+>   audit_004 has since recorded all 31 findings resolved, and backlog_005 marks
+>   its High items fixed.
+> - **`<leader>go`:** the launcher choice now lives in
+>   `lua/tajbanana/system_open.lua`; `set.lua` only calls it.
+> - **lazygit symlink:** no longer needed for `<leader>lg` — lazygit.nvim passes
+>   the repo config with `-ucf`; a link is only for terminal lazygit, into
+>   `$(lazygit -cd)`.
+
 Written 2026-08-03, updated 2026-08-04. Records what was changed on this machine
 and **why**, so a future session doesn't have to re-derive it.
 
