@@ -181,10 +181,23 @@ local function fix_sdkman_path()
     end
 end
 
+-- A relative KOTLIN_LSP_HOME is resolved against the directory Neovim was
+-- STARTED in, as the shell meant it. kotlin_update.install_root() used to do
+-- this on first use -- at plugin load, which is lazy -- so a :cd before the
+-- first Kotlin buffer resolved it against the wrong directory.
+local function fix_kotlin_lsp_home()
+    local home = vim.env.KOTLIN_LSP_HOME
+    if home and home ~= "" and not vim.startswith(home, "/") and not home:match("^%a:[/\\]") then
+        vim.env.KOTLIN_LSP_HOME = vim.fs.normalize(vim.fn.fnamemodify(home, ":p"))
+    end
+end
+M._fix_kotlin_lsp_home = fix_kotlin_lsp_home -- exposed for testing
+
 function M.setup()
     fix_node_path()
     fix_cargo_path()
     fix_sdkman_path()
+    fix_kotlin_lsp_home()
 end
 
 return M
