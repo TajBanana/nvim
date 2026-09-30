@@ -1,6 +1,10 @@
 return {
     "AlexandrosAlexiou/kotlin.nvim",
     ft = { "kotlin" },
+    -- The commands are defined in config below, so without this they did not
+    -- exist until a .kt buffer loaded the plugin -- including on a fresh machine,
+    -- where :KotlinLspUpdate is exactly what performs the first install.
+    cmd = { "KotlinLspUpdate", "KotlinLspRollback" },
     dependencies = {
         "mason-org/mason.nvim",
         "mason-org/mason-lspconfig.nvim",
@@ -15,12 +19,25 @@ return {
         -- dir); on each expiry, drop in the new build and repoint the symlink --
         -- no config change. kotlin.nvim probes $MASON first and only falls back to
         -- KOTLIN_LSP_DIR, so this stays a no-op on any machine that still installs
-        -- kotlin-lsp through Mason. Guarded on existence so the resolver is never
-        -- handed a dead path.
-        local self_managed = vim.fn.expand("~/.local/share/kotlin-lsp/current")
-        if vim.uv.fs_stat(self_managed) then
-            vim.env.KOTLIN_LSP_DIR = self_managed
-        end
+        -- kotlin-lsp through Mason.
+        --
+        -- KOTLIN_LSP_DIR is the `current` SYMLINK path (not the build it
+        -- resolves to), so every launch -- in this and every other Neovim --
+        -- follows whatever `current` points at when the server starts, and an
+        -- update or rollback is picked up by the next start.
+        -- History (2026-09-29): this was briefly changed to the resolved
+        -- versioned directory, so the updater could see from process command
+        -- lines which builds were in use. That regressed: Neovim's own FileType
+        -- handler starts the server from the command kotlin.nvim configured on
+        -- the PREVIOUS launch, so after an update or rollback the old build was
+        -- relaunched. Reverted; the updater instead prunes nothing while any
+        -- server started through `current` is running.
+        -- Set even while `current` dangles (lstat, not stat), so repairing the
+        -- link needs no editor restart; a KOTLIN_LSP_DIR exported by the user
+        -- is left alone, and nothing is set without a self-managed install.
+        -- (kotlin_update.point_at_current is called again after an update, so a
+        -- first install -- no `current` yet at load -- attaches without a restart.)
+        require("tajbanana.kotlin_update").point_at_current()
 
         require("kotlin").setup({
             -- kotlin-lsp (v261+; this machine runs 263) only emits inlay hints
@@ -35,5 +52,8 @@ return {
         vim.api.nvim_create_user_command("KotlinLspUpdate", function()
             require("tajbanana.kotlin_update").start()
         end, { desc = "Update Kotlin LSP with confirmed Open VSX fallback" })
+        vim.api.nvim_create_user_command("KotlinLspRollback", function()
+            require("tajbanana.kotlin_update").rollback()
+        end, { desc = "Roll Kotlin LSP back to the previous build" })
     end,
 }

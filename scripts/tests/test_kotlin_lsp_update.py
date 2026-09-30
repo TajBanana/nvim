@@ -1,3 +1,4 @@
+# Run: python3 -B scripts/tests/test_kotlin_lsp_update.py
 """Offline startup and source-selection regression tests."""
 import importlib.util
 import json
@@ -90,6 +91,10 @@ else:
         curl.chmod(0o755)
         self.env = dict(os.environ, FIXTURES=str(self.root), KOTLIN_LSP_HOME=str(self.dest),
                         PATH=str(self.bin) + os.pathsep + os.environ['PATH'])
+        # A fake, empty process list by default: the prune step reads `ps`, and
+        # the machine's real processes (a Kotlin server open in Neovim runs as
+        # ".../current/bin/intellij-server") must not change test outcomes.
+        self.fake_ps('echo "/sbin/launchd"\n')
 
     def server(self, build, mode):
         folder = self.dest / f'kotlin-server-{build}' / 'bin'
@@ -125,6 +130,263 @@ else:
                 tar.add(candidate, arcname=candidate.name)
         (self.root / 'checksum').write_text(hashlib.sha256(archive.read_bytes()).hexdigest())
         shutil.rmtree(candidate)
+
+    def run_rollback(self):
+        return subprocess.run(['bash', str(SCRIPTS / 'update-kotlin-lsp.sh'), 'rollback'],
+                              env=self.env, text=True, capture_output=True, timeout=15)
+
+    def assert_previous(self, build):
+        self.assertEqual((self.dest / 'previous').resolve().name, f'kotlin-server-{build}')
+
+    def test_update_keeps_previous_build_and_prunes_older(self):
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_current(self.github)
+        self.assert_previous(self.old)
+        self.assertTrue((self.dest / f'kotlin-server-{self.old}').is_dir())
+        # Neither current nor the rollback target: pruned.
+        self.assertFalse((self.dest / f'kotlin-server-{self.vsx}').exists())
+
+    def test_rollback_swaps_current_and_previous(self):
+        self.assertEqual(self.run_update().returncode, 0)
+        result = self.run_rollback()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(result.stdout.endswith(f'ROLLED-BACK kotlin-server-{self.old}\n'))
+        self.assert_current(self.old)
+        self.assert_previous(self.github)
+        # Rolling back again returns to the newer build.
+        self.assertEqual(self.run_rollback().returncode, 0)
+        self.assert_current(self.github)
+        self.assert_previous(self.old)
+
+    def test_rollback_refuses_expired_previous(self):
+        self.assertEqual(self.run_update().returncode, 0)
+        self.server(self.old, 'expired')
+        result = self.run_rollback()
+        self.assertEqual(result.returncode, 14, result.stderr)
+        self.assertIn('has expired', result.stderr)
+        self.assert_current(self.github)
+
+    def test_rollback_without_previous_build(self):
+        result = self.run_rollback()
+        self.assertEqual(result.returncode, 13, result.stderr)
+        self.assert_current(self.old)
+
+    def test_rollback_refuses_when_previous_is_current(self):
+        # current == previous must not "succeed" (probe, restart) doing nothing.
+        (self.dest / 'previous').symlink_to(self.dest / f'kotlin-server-{self.old}')
+        result = self.run_rollback()
+        self.assertEqual(result.returncode, 13, result.stderr)
+        self.assertIn('already current', result.stderr)
+        self.assert_current(self.old)
+
+    def test_rollback_drops_dangling_previous(self):
+        (self.dest / 'previous').symlink_to(self.dest / 'kotlin-server-1.0.0')
+        result = self.run_rollback()
+        self.assertEqual(result.returncode, 13, result.stderr)
+        self.assertFalse(os.path.lexists(self.dest / 'previous'))
+        self.assert_current(self.old)
+
+    def test_rollback_to_previous_outside_install_dir(self):
+        # A valid previous build kept elsewhere: it used to be looked up as
+        # "$DEST/<basename>", judged dangling, and its link deleted.
+        elsewhere = self.root / 'elsewhere'
+        elsewhere.mkdir()
+        shutil.move(str(self.dest / f'kotlin-server-{self.vsx}'), str(elsewhere))
+        (self.dest / 'previous').symlink_to(elsewhere / f'kotlin-server-{self.vsx}')
+        result = self.run_rollback()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.dest / 'current').resolve(), (elsewhere / f'kotlin-server-{self.vsx}').resolve())
+        self.assert_previous(self.old)
+
+    def test_messages_name_a_current_that_is_not_a_link(self):
+        # `current` as a plain directory: the messages printed an empty name
+        # ("Keeping .").
+        (self.dest / 'current').unlink()
+        shutil.copytree(self.dest / f'kotlin-server-{self.github}', self.dest / 'current')
+        (self.dest / 'previous').symlink_to(self.dest / f'kotlin-server-{self.old}')
+        self.server(self.old, 'expired')
+        result = self.run_rollback()
+        self.assertEqual(result.returncode, 14, result.stderr)
+        self.assertIn('Keeping the current installation.', result.stderr)
+
+    def test_update_with_dangling_current_prunes_nothing(self):
+        # `current` pointing at a build that does not exist (as a test once left
+        # it): no previous is recorded, so pruning would delete the only
+        # working build.
+        (self.dest / 'current').unlink()
+        (self.dest / 'current').symlink_to(self.dest / 'kotlin-server-1.0.0')
+        self.stage_download()
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_current(self.github)
+        self.assertTrue((self.dest / f'kotlin-server-{self.old}').is_dir(), 'the old working build was pruned')
+        self.assertTrue((self.dest / f'kotlin-server-{self.vsx}').is_dir())
+        self.assertIn('did not point at a working build', result.stderr)
+
+    def test_rollback_needs_no_curl_or_unzip(self):
+        self.assertEqual(self.run_update().returncode, 0)
+        # A PATH holding only the tools rollback uses -- no curl, no unzip.
+        tools = self.root / 'tools'
+        tools.mkdir()
+        for name in ('bash', 'python3', 'basename', 'readlink', 'dirname', 'mktemp', 'rm', 'uname', 'mkdir'):
+            (tools / name).symlink_to(shutil.which(name))
+        env = dict(self.env, PATH=str(tools))
+        result = subprocess.run([str(tools / 'bash'), str(SCRIPTS / 'update-kotlin-lsp.sh'), 'rollback'],
+                                env=env, text=True, capture_output=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_current(self.old)
+
+    def test_relative_install_dir_links_resolve(self):
+        self.stage_download()
+        env = dict(self.env, KOTLIN_LSP_HOME='install')
+        result = subprocess.run(['bash', str(SCRIPTS / 'update-kotlin-lsp.sh'), '--interactive'], cwd=self.root,
+                                input='y\n', env=env, text=True, capture_output=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # Links must not be relative to their own directory (dangling).
+        self.assertTrue((self.dest / 'current' / 'bin' / 'intellij-server').exists())
+        self.assertTrue((self.dest / 'previous' / 'bin' / 'intellij-server').exists())
+
+    def test_prune_keeps_build_used_by_running_server(self):
+        # A server started from a versioned build directory (by hand, or by
+        # another tool) is recognised and its build kept. The resolved path is
+        # used because the temp dir sits behind a symlink on macOS
+        # (/var -> /private/var). A fake process list keeps the machine's real
+        # processes out of the result.
+        in_use = self.dest.resolve() / f'kotlin-server-{self.vsx}' / 'bin' / 'intellij-server'
+        self.fake_ps(f'echo "{in_use} --stdio"\n')
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(in_use.exists(), 'a build a running server uses was pruned')
+        self.assertIn('a running server uses it', result.stderr)
+
+    def fake_ps(self, body):
+        ps = self.bin / 'ps'
+        ps.write_text('#!/bin/sh\n' + body)
+        ps.chmod(0o755)
+
+    def test_prune_match_early_in_long_process_list(self):
+        # The old `printf | grep -q` died of SIGPIPE when the match came early in
+        # a long listing, and pipefail turned "in use" into "not in use".
+        in_use = self.dest.resolve() / f'kotlin-server-{self.vsx}'
+        self.fake_ps(f'echo "{in_use}/bin/intellij-server --stdio"\n'
+                     'i=0; while [ $i -lt 200000 ]; do echo "filler process $i"; i=$((i+1)); done\n')
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(in_use.exists(), 'in-use build pruned (SIGPIPE false negative)')
+
+    def test_prune_through_symlinked_install_dir(self):
+        # A server launched from the RESOLVED versioned path (by hand, or by
+        # another tool -- Neovim itself launches through `current`); DEST behind
+        # a symlink (or with a trailing slash) never matched it.
+        link = self.root / 'link'
+        link.symlink_to(self.dest)
+        in_use = self.dest.resolve() / f'kotlin-server-{self.vsx}'
+        self.fake_ps(f'echo "{in_use}/bin/intellij-server --stdio"\n')
+        for home in (str(link), str(link) + '/'):
+            env = dict(self.env, KOTLIN_LSP_HOME=home)
+            result = subprocess.run(['bash', str(SCRIPTS / 'update-kotlin-lsp.sh'), '--interactive'],
+                                    input='y\n', env=env, text=True, capture_output=True, timeout=15)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(in_use.exists(), f'in-use build pruned with KOTLIN_LSP_HOME={home}')
+
+    def test_prune_keeps_build_used_through_symlinked_path(self):
+        # The reverse: DEST is the real dir, the server was started through a
+        # symlink to it; its build was deleted (the ps line never contained the
+        # resolved DEST).
+        link = self.root / 'homelink'
+        link.symlink_to(self.dest)
+        in_use = link / f'kotlin-server-{self.vsx}' / 'bin' / 'intellij-server'
+        self.fake_ps(f'echo "{in_use} --stdio"\n')
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.dest / f'kotlin-server-{self.vsx}').is_dir(), 'build in use via a symlinked path was pruned')
+        self.assertIn('a running server uses it', result.stderr)
+
+    def test_no_offer_when_open_vsx_build_is_already_current(self):
+        # After an earlier fallback the Open VSX build is current: no second
+        # "Download and validate" prompt, just UP-TO-DATE.
+        self.server(self.github, 'expired')
+        self.stage_download(self.github)
+        (self.dest / 'current').unlink()
+        (self.dest / 'current').symlink_to(self.dest / f'kotlin-server-{self.vsx}')
+        result = self.run_update('n')
+        self.assertNotIn('CONFIRM-OPEN-VSX', result.stdout)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(result.stdout.endswith(f'UP-TO-DATE kotlin-server-{self.vsx}\n'), result.stdout)
+        self.assert_current(self.vsx)
+
+    def test_expired_github_build_is_not_downloaded_again(self):
+        # The first run downloads and probes the expired GitHub build; the next
+        # one must not fetch that archive again.
+        self.server(self.github, 'expired')
+        self.stage_download(self.github)
+        (self.dest / 'current').unlink()
+        (self.dest / 'current').symlink_to(self.dest / f'kotlin-server-{self.vsx}')
+        self.run_update('n')
+        calls = self.root / 'calls'
+        calls.write_text('')
+        result = self.run_update('n')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        fetched = calls.read_text()
+        self.assertNotIn(f'kotlin-server-{self.github}', fetched, 'the expired GitHub archive was downloaded again')
+        self.assertIn('not downloading it again', result.stdout)
+
+    def test_no_prune_without_process_list(self):
+        self.fake_ps('exit 1\n')
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('could not list running processes', result.stderr)
+        self.assertTrue((self.dest / f'kotlin-server-{self.vsx}').exists(), 'pruned without a process list')
+
+    def test_no_prune_while_a_server_runs_through_current(self):
+        # A server started via the `current` symlink: which build it runs
+        # cannot be told, so nothing is pruned.
+        self.fake_ps(f'echo "{self.dest.resolve()}/current/bin/intellij-server --stdio"\n')
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("launched through 'current'", result.stderr)
+        self.assertTrue((self.dest / f'kotlin-server-{self.vsx}').exists())
+
+    def test_failed_activation_without_previous_leaves_none(self):
+        # No previous link before the update, and ONLY the `current` swap fails
+        # (a python3 wrapper fails atomic_link's call for "current"): the
+        # previous link created just before must be removed again, or it would
+        # point at the still-current build and rollback would refuse.
+        self.stage_download()
+        real_python = shutil.which('python3')
+        wrapper = self.bin / 'python3'
+        wrapper.write_text('#!/bin/sh\n'
+                           'if [ "$1" = "-" ] && [ "$3" = "current" ]; then echo "injected failure" >&2; exit 1; fi\n'
+                           f'exec "{real_python}" "$@"\n')
+        wrapper.chmod(0o755)
+        result = self.run_update()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Could not activate', result.stderr)
+        self.assert_current(self.old)
+        self.assertFalse(os.path.lexists(self.dest / 'previous'), 'a failed activation left a previous link')
+
+    def test_prune_skips_while_a_server_runs_through_any_current_path(self):
+        # Started through an unresolved (e.g. symlinked-home) path to current.
+        self.fake_ps('echo "/Users/someone/link-to-home/.local/share/kotlin-lsp/current/bin/intellij-server --stdio"\n')
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("launched through 'current'", result.stderr)
+        self.assertTrue((self.dest / f'kotlin-server-{self.vsx}').exists())
+
+    def test_failed_activation_changes_nothing(self):
+        # current cannot be replaced (a real directory in its place): the update
+        # must fail without having touched previous.
+        (self.dest / 'previous').symlink_to(self.dest / f'kotlin-server-{self.vsx}')
+        (self.dest / 'current').unlink()
+        (self.dest / 'current').mkdir()
+        (self.dest / 'current' / 'keep').write_text('x')
+        self.stage_download()
+        result = self.run_update()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('cannot update', result.stderr)
+        self.assertNotIn('Traceback', result.stderr)
+        self.assert_previous(self.vsx)
 
     def test_download_verified_and_source_recorded(self):
         self.stage_download()

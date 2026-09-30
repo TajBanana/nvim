@@ -1,8 +1,9 @@
--- Run with nvim --headless -u NONE -i NONE -l scripts/tests/kotlin_update_flow.lua
+-- Run: nvim --headless -u NONE -i NONE -l scripts/tests/kotlin_update_flow.lua
 vim.opt.rtp:prepend(vim.fn.getcwd())
 local requests, prompts, restarts = {}, {}, {}
-local notices = {}
-vim.notify = function(message) notices[#notices + 1] = message end
+-- notices[i] is the message, levels[i] its level (WARN vs ERROR is part of the contract).
+local notices, levels = {}, {}
+vim.notify = function(message, level) notices[#notices + 1] = message; levels[#levels + 1] = level end
 package.loaded['tajbanana.kotlin_update_prompt'] = {
     ask = function(title, lines, label, callback)
         prompts[#prompts + 1] = { title = title, lines = lines, label = label, callback = callback }
@@ -82,13 +83,53 @@ for _, code in ipairs({ 75, 11, 12 }) do
     drain()
     assert(not update.is_running())
     assert(#prompts == 3, 'busy or no alternative must not offer download')
+    assert(levels[#levels] == vim.log.levels.WARN, ('exit %d is an expected refusal: WARN'):format(code))
 end
 update.start()
 requests[#requests].opts.stderr(nil, 'curl: network failed')
 requests[#requests].callback({ code = 7 })
 drain()
+assert(levels[#levels] == vim.log.levels.ERROR, 'a real failure is an ERROR')
 assert(prompts[4].label == 'retry')
 prompts[4].callback(false)
 assert(not update.is_running())
 vim.lsp.get_clients = function() return {} end
-print('Kotlin update confirmation, retry, restart, and overlap checks passed')
+
+-- :KotlinLspRollback: same guard and restart path, script run in `rollback` mode.
+local rollbacks = {}
+vim.system = function(cmd, _, callback)
+    assert(cmd[3] == 'rollback', 'rollback runs the script in rollback mode')
+    rollbacks[#rollbacks + 1] = callback
+    return {}
+end
+local rstops = 0
+vim.lsp.get_clients = function() return { { stop = function() rstops = rstops + 1 end } } end
+package.loaded['tajbanana.lsp_status']._expired_kotlin = true
+restarts = {}
+update.rollback()
+assert(#rollbacks == 1 and update.is_running())
+update.rollback()
+update.start()
+assert(#rollbacks == 1 and update.is_running(), 'rollback shares the update guard')
+rollbacks[1]({ code = 0, stdout = 'ROLLED-BACK kotlin-server-262.1.0\n', stderr = '' })
+drain()
+assert(rstops == 1 and update.is_running(), 'rollback stops the client, then reattaches')
+assert(not package.loaded['tajbanana.lsp_status']._expired_kotlin)
+restarts[1]()
+assert(not update.is_running())
+local before = #notices
+update.rollback()
+rollbacks[2]({ code = 14, stdout = '', stderr = 'Previous build kotlin-server-262.1.0 has expired' })
+drain()
+assert(not update.is_running() and rstops == 1, 'expired previous build: no restart')
+assert(notices[before + 2]:find('has expired', 1, true), 'refusal reason surfaced')
+assert(levels[before + 2] == vim.log.levels.WARN, 'expired previous build is an expected refusal: WARN')
+before = #notices
+update.rollback()
+rollbacks[3]({ code = 1, stdout = '', stderr = ('server log line\n'):rep(400) .. 'Could not validate previous build' })
+drain()
+assert(levels[before + 2] == vim.log.levels.ERROR, 'rollback validation failure is an ERROR')
+assert(#notices[before + 2] <= 1200, 'rollback error is trimmed like the update path')
+assert(notices[before + 2]:find('Could not validate', 1, true), 'the tail (the reason) is kept')
+vim.lsp.get_clients = function() return {} end
+print('Kotlin update confirmation, retry, restart, rollback, and overlap checks passed')

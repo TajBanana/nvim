@@ -55,4 +55,5 @@ vim.wait(100, function()
     return vim.api.nvim_buf_get_lines(popup, 2, 3, false)[1]:find('lookup failed', 1, true) ~= nil
 end)
 assert(vim.api.nvim_buf_get_lines(popup, 2, 3, false)[1]:find('lookup failed', 1, true))
+vim.fn.delete(root, 'rf')
 print('Kotlin expiry popup checks passed')
