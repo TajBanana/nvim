@@ -17,9 +17,10 @@ nmap ]e <Action>(GotoNextError)
 nmap <leader>e <Action>(ShowErrorDescription)
 nmap <leader>rr <Action>(Run)
 nmap <leader>rt <Action>(Stop)
-" Mirrors nvim's <leader>gl / <leader>gm, which moved from GitLab to GitHub.
-" These IDs come from IntelliJ's bundled GitHub plugin; if a mapping does
-" nothing, confirm the ID with IdeaVim's :actionlist Github command.
+" Approximates nvim's <leader>gl / <leader>gm. nvim picks GitHub vs GitLab per
+" repo from the remote and <leader>gl there is a commit-SHA permalink; these map
+" to IntelliJ's bundled GitHub plugin actions only, so on GitLab repos they do
+" nothing. If a mapping does nothing, confirm the ID with :actionlist Github.
 nmap <leader>gl <Action>(Github.Open.In.Browser)
 nmap <leader>gm <Action>(Github.Create.Pull.Request)
 nmap <leader>gh <Action>(Vcs.ShowTabbedFileHistory)

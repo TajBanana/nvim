@@ -1,9 +1,11 @@
 -- Shared git helpers. Repo-root resolution used to be reimplemented in
 -- forge.lua, repo_diagnostics.lua and plugins/git.lua with subtly different
--- fallbacks; this is the single source of truth. Callers decide how to handle
--- a nil result (notify-and-abort, fall back to the file's dir, or stay silent),
--- so the distinct call-site behaviour is preserved without duplicating the git
--- invocation itself.
+-- fallbacks; this is the single source of truth (used by forge.lua,
+-- repo_diagnostics.lua, git_pickers.lua and plugins/telescope.lua -- the
+-- plugins/git.lua gutter now takes gitsigns' own repo root instead). Callers
+-- decide how to handle a nil result (notify-and-abort, fall back to the file's
+-- dir, or stay silent), so the distinct call-site behaviour is preserved
+-- without duplicating the git invocation itself.
 local M = {}
 
 ---Absolute path of the git work-tree root containing `dir`, or nil if `dir`
