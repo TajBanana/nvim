@@ -1,5 +1,14 @@
 # 2026-07-20 — Cross-language color discrepancy audit
 
+> **Status (2026-09-29): historical — superseded by the single colour scheme**
+> (`lua/plugins/colorscheme.lua`, "one consistent scheme", commit `4609cc3`), which
+> replaced the per-language scoping this audit worked with; most target colours in
+> the table below have since changed (e.g. blue is `#5B8EFF`, booleans are purple
+> italic). Finding 3 (markdown, `.ts` vs `.tsx`, html tags) is resolved. Still
+> true and now also recorded in `docs/design-decisions.md` ("Colors"): Telescope
+> preview buffers get treesitter highlighting only, so LSP semantic-token colours
+> never appear in previews.
+
 Multi-agent audit (16 parallel language probes + synthesis) of two discrepancy
 classes across every language in use: (1) colors that differ between a real
 buffer and the Telescope preview pane, (2) treesitter captures rendering

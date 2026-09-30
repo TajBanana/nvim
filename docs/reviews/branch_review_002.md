@@ -1,5 +1,8 @@
 ## 2026-07-21 - feat/language-tooling-overhaul [2dd8f34cb907c31b278de254030e21be8a87690b]
 
+> **Status (2026-09-29, re-checked against the code):** M1, L2, L3 fixed. L1 (the
+> same CHANGELOG width entries as 001-M3) is still present but not a bug.
+
 Diff-mode review against `origin/main` (base `857039c`), cumulative over the
 branch with deepest attention on the commits after review 001's recorded tip
 (`7c534e7`): the GitLab module, the repo-wide lint module, the inlay-hint

@@ -1,5 +1,9 @@
 ## 2026-07-21 - feat/language-tooling-overhaul [7c534e7750f17868b2de720943ffc4f032f82ac1]
 
+> **Status (2026-09-29, re-checked against the code):** M1, M2, L1, L2, L3 fixed.
+> M3 (two CHANGELOG nvim-tree width entries) is still present but not a bug — they
+> sit in separate dated sections.
+
 Diff-mode review against `origin/main` (base `857039c`). Stack: generic (Lua
 Neovim config). Scope: authored config code (`init.lua`, `lua/**`,
 `after/queries/**`, `.wezterm.lua`, `.ideavimrc`, repo docs); vendored

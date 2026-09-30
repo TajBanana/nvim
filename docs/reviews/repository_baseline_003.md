@@ -1,5 +1,12 @@
 ## 2026-07-25 - feat/per-line-blame-images-gotmpl [26ff2ee]
 
+> **Status (2026-09-29, re-checked against the code):** H1, M1–M5, M7, L1–L7 fixed.
+> M8 (CHANGELOG width entries) is not a bug. **M6 is partly open:** the tabs problem
+> is fixed, but `stylua --check` still reformats 27 of 31 Lua files and the
+> `stylua.toml` comment on `collapse_simple_statement` is misleading (CLAUDE.md
+> records that stylua is not enforced). *Follow-up 2026-09-29: the comment was
+> corrected in `5b90a99, 315f3c3, c1e2d10`; stylua stays unenforced.*
+
 Whole-codebase baseline review (mode: baseline, generic/Lua stack). 15 findings —
 1 High, 7 Medium (1 carried-forward opt-out), 6 Low. The user chose to fix
 everything except the carried-forward opt-out (M8), including the three findings

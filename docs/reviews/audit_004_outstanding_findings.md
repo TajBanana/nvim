@@ -1,5 +1,24 @@
 ## 2026-08-04 — fix/audit-findings-2026-08 — outstanding findings
 
+> **Status (2026-09-29, re-checked against the code):** 26 of 31 fixed. L20, L22 and
+> the L1 remainder are present but judged not-a-bug (see their rationale below);
+> L21 is obsolete (`github.lua` became `forge.lua`). **Still open:**
+> - **L12 — marked fixed below, but it is not:** a parser installed during a session
+>   never highlights the already-open buffer. `lua/plugins/treesitter.lua` listens
+>   for `User TSUpdate`, which nvim-treesitter fires when an install *starts*, and
+>   registers the listener after `TSInstall` is called (verified with an isolated
+>   json-parser install: 0 handler runs, buffer stayed unhighlighted).
+> - **L23 (partly):** the comment at `lua/plugins/lsp.lua` near the `<leader>gd`
+>   wiring still says 'type "def"/"type"/"impl"/"ref" to filter'; the picker opens in
+>   normal mode.
+>
+> **Follow-up (2026-09-29): L12 and L23 fixed** — `e3b58e2` (install through
+> `install():await()`, then start the open buffers) and `ab90a72` (comment).
+>
+> `audit_004_harness.lua` still runs under the current config, but its recipe
+> below uses a relative `luafile` path after `cd`-ing elsewhere — pass the
+> absolute path.
+
 Two-part audit of the whole config. Part one was a static + empirical review of
 every module; part two exercised the **live config against ten public
 repositories** across Go, Python, TypeScript/TSX/JS, Lua, Java, Kotlin, Rust,
