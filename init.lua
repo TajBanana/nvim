@@ -37,4 +37,7 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
-require("lazy").setup("plugins")
+-- rocks disabled: no plugin here needs luarocks (`:checkhealth lazy` confirms
+-- "no plugins require luarocks"), and leaving it on made checkhealth report a
+-- red ERROR for the missing hererocks toolchain on every machine.
+require("lazy").setup("plugins", { rocks = { enabled = false } })

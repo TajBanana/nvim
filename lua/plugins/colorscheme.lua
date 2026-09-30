@@ -201,7 +201,7 @@ return {
             transparent = true, -- let WezTerm's background show through
             colors = {
                 -- Darkened, desaturated backgrounds: 30% darker than the "deep"
-                -- style defaults, then ~30% desaturated toward grey to cut the
+                -- style defaults, then ~55-60% desaturated toward grey to cut the
                 -- blue cast. Every group onedark defines derives from these keys,
                 -- so this restyles the editor, floats, Pmenu dropdowns, Telescope,
                 -- nvim-tree, and statusline fills in one place.

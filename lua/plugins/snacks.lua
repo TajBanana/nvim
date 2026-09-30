@@ -18,5 +18,14 @@ return {
             -- a separate full-window path.
             doc = { enabled = false },
         },
+        -- vim.ui.input as a floating box instead of the command line at the
+        -- bottom: <leader>rf (LSP rename) opens it just above the symbol,
+        -- pre-filled with the current name. Every other vim.ui.input prompt
+        -- becomes a float too.
+        input = { enabled = true },
+        -- ...opened at the cursor, not snacks' default top-of-editor spot.
+        styles = {
+            input = { relative = "cursor", row = -3, col = 0 },
+        },
     },
 }

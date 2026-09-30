@@ -69,8 +69,17 @@ return {
     },
     {
         "j-hui/fidget.nvim",
-        event = "LspAttach",
-        opts = {},
+        -- VeryLazy, not LspAttach: it also owns vim.notify now, so it must be up
+        -- before the first notification rather than the first LSP attach.
+        event = "VeryLazy",
+        opts = {
+            -- Route vim.notify into fidget's non-blocking corner toasts. Most of
+            -- this config's messages go through vim.notify (repo lint, Kotlin
+            -- updater, forge, <leader>go), and with cmdheight=0 two in a row --
+            -- or one multi-line one -- raised a "Press ENTER" prompt. Everything
+            -- else (:echo, errors) is handled by ui2 in set.lua.
+            notification = { override_vim_notify = true },
+        },
     },
     {
         "folke/which-key.nvim",
@@ -96,7 +105,7 @@ return {
     {
         "lukas-reineke/indent-blankline.nvim",
         main = "ibl",
-        event = "BufReadPre",
+        event = { "BufReadPre", "BufNewFile" },
         -- Keep the highlighted current-scope guide, but drop the underline that
         -- ibl otherwise draws on the scope's first/last line. Point the guide at
         -- our own IblScope group (a darker muted rose, set in colorscheme.lua):
