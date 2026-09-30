@@ -20,7 +20,8 @@ local function expect(range)
     assert(vim.deep_equal(selection(), range), vim.inspect(selection()) .. ' ~= ' .. vim.inspect(range))
     checks = checks + 1
 end
-for _, ft in ipairs({ 'yaml', 'helm' }) do
+-- yaml.* are the compound filetypes set.lua assigns (values files, CI files).
+for _, ft in ipairs({ 'yaml', 'helm', 'yaml.helm-values', 'yaml.gitlab' }) do
     escape()
     vim.cmd('enew!')
     vim.bo.filetype = ft
@@ -32,7 +33,11 @@ for _, ft in ipairs({ 'yaml', 'helm' }) do
     press('<M-Up>')
     expect({3, 4, 3, 8})
     local ranges = { selection() }
-    for _ = 1, 4 do
+    -- The entry expands from column 0 (its indentation), not from the key.
+    press('<M-Up>')
+    expect({3, 0, 3, 22})
+    ranges[#ranges + 1] = selection()
+    for _ = 1, 3 do
         press('<M-Up>')
         ranges[#ranges + 1] = selection()
     end
@@ -121,6 +126,44 @@ load_helm({'name: café'})
 vim.api.nvim_win_set_cursor(0, {1, 8})
 press('<M-Up>')
 expect({1, 6, 1, 9}) -- final character starts at byte 9, not its continuation byte
+-- The stack is dropped when visual mode ends: a later plain `v` + <M-Up>
+-- starts from the cursor, not from the previous session's node.
+local reset_lines = { 'kafka:', '  repository:', '    image: apache/kafka', '    tag: "4.3.1"', '' }
+escape()
+vim.cmd('enew!')
+vim.bo.filetype = 'yaml'
+vim.api.nvim_buf_set_lines(0, 0, -1, false, reset_lines)
+vim.api.nvim_win_set_cursor(0, { 3, 4 })
+press('<M-Up>')
+press('<M-Up>')
+press('<M-Up>')
+escape() -- ModeChanged: session over
+vim.api.nvim_win_set_cursor(0, { 4, 4 })
+vim.cmd('normal! v')
+press('<M-Up>')
+expect({ 4, 4, 4, 6 }) -- `tag`, not a parent of the old session's node
+
+-- An edit drops the stack: stale nodes report pre-edit coordinates. After a
+-- line is inserted above mid-session, <M-Up> must select what a FRESH session
+-- at the same cursor selects.
+escape()
+vim.api.nvim_buf_set_lines(0, 0, -1, false, reset_lines)
+vim.api.nvim_win_set_cursor(0, { 3, 4 })
+press('<M-Up>')
+press('<M-Up>')
+vim.api.nvim_buf_set_lines(0, 0, 0, false, { 'first: 1' })
+vim.api.nvim_exec_autocmds('TextChanged', { buffer = 0 })
+local cursor = vim.api.nvim_win_get_cursor(0)
+press('<M-Up>')
+local after_edit = selection()
+escape()
+vim.api.nvim_win_set_cursor(0, cursor)
+vim.cmd('normal! v')
+press('<M-Up>')
+assert(vim.deep_equal(after_edit, selection()),
+    'after an edit: ' .. vim.inspect(after_edit) .. ' ~= fresh ' .. vim.inspect(selection()))
+checks = checks + 1
+
 escape()
 vim.cmd('enew!')
 vim.bo.filetype = 'no_such_parser'

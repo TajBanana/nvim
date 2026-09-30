@@ -8,7 +8,23 @@ local languages = {
     javascriptreact = "javascript",
     yaml = "yaml",
     helm = "yaml", -- Helm injects YAML around its Go-template expressions.
+    -- Compound YAML filetypes assigned in set.lua (chart values, compose, GitLab CI).
+    ["yaml.helm-values"] = "yaml",
+    ["yaml.docker-compose"] = "yaml",
+    ["yaml.gitlab"] = "yaml",
+    -- Brace/bracket literals: ibl's defaults for these languages only know
+    -- statements and functions, so inside a multi-line `{ ... }` table/dict
+    -- the guide jumped out to the enclosing function -- e.g. every
+    -- `vim.lsp.config("x", { ... })` / plugin spec table in this repo.
+    lua = "lua",
+    python = "python",
 }
+
+-- Any other compound YAML filetype (yaml.<anything>) scopes as YAML too, as
+-- incremental selection already treats it.
+local function lang_of(ft)
+    return languages[ft] or (vim.startswith(ft, "yaml.") and "yaml" or nil)
+end
 
 local web_nodes = {
     "lexical_declaration", "variable_declaration", "call_expression", "new_expression",
@@ -25,6 +41,10 @@ M.include = {
     tsx = web_nodes,
     javascript = web_nodes,
     yaml = { "block_mapping_pair", "block_sequence_item", "flow_mapping", "flow_sequence" },
+    -- Multi-line calls count too, like call_expression for the web languages
+    -- (the multiline filter below keeps one-line tables/calls out).
+    lua = { "table_constructor", "function_call" },
+    python = { "dictionary", "list", "set", "tuple", "call" },
 }
 
 -- YAML nodes can end at column zero on the next line, after trailing blank
@@ -68,7 +88,7 @@ function M.setup()
 
     scope.get_cursor_range = function(win)
         local buf = vim.api.nvim_win_get_buf(win)
-        if not languages[vim.bo[buf].filetype] then return get_cursor_range(win) end
+        if not lang_of(vim.bo[buf].filetype) then return get_cursor_range(win) end
         -- Leading whitespace lies outside declarations and opening tags. Use
         -- the cursor itself, or the first nonblank character when in the indent.
         local pos = vim.api.nvim_win_get_cursor(win)
@@ -82,7 +102,7 @@ function M.setup()
 
     scope.get = function(buf, config)
         local node = get_scope(buf, config)
-        local lang = languages[vim.bo[buf].filetype]
+        local lang = lang_of(vim.bo[buf].filetype)
         if not lang then return node end
         local defaults = require("ibl.scope_languages")[lang] or {}
         local function contains(list, kind)

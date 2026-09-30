@@ -60,23 +60,33 @@ return {
                     end
                 end
                 if #to_install > 0 then
-                    vim.cmd("TSInstall " .. table.concat(to_install, " "))
                     -- A parser installed during this session does NOT retro-start
                     -- on the buffer that is already open -- the FileType autocmd
                     -- above ran (and pcall-failed silently) before the parser
                     -- existed, so that buffer stayed unhighlighted until :e or a
-                    -- restart. Re-attach every loaded buffer as parsers land.
-                    vim.api.nvim_create_autocmd("User", {
-                        pattern = "TSUpdate",
-                        group = vim.api.nvim_create_augroup("TSRestartAfterInstall", { clear = true }),
-                        callback = function()
+                    -- restart. install() returns a task whose await() callback
+                    -- runs once every parser has finished installing; re-attach
+                    -- the loaded buffers that are not highlighted then.
+                    --
+                    -- (This used to listen for `User TSUpdate` after calling
+                    -- :TSInstall. That never worked: nvim-treesitter fires
+                    -- TSUpdate when an install STARTS, and the listener was
+                    -- registered after the call anyway -- audit_004 L12, marked
+                    -- fixed but re-found open on 2026-09-29.)
+                    require("nvim-treesitter").install(to_install, { summary = true }):await(function()
+                        vim.schedule(function()
+                            -- On a fresh machine the parser dir (stdpath("data")/site)
+                            -- did not exist when Neovim first searched the runtime
+                            -- path, and that search is cached, so the new parser was
+                            -- never found. Re-setting 'runtimepath' drops the cache.
+                            vim.o.runtimepath = vim.o.runtimepath
                             for _, b in ipairs(vim.api.nvim_list_bufs()) do
-                                if vim.api.nvim_buf_is_loaded(b) then
+                                if vim.api.nvim_buf_is_loaded(b) and not vim.treesitter.highlighter.active[b] then
                                     pcall(vim.treesitter.start, b)
                                 end
                             end
-                        end,
-                    })
+                        end)
+                    end)
                 end
             end,
         })

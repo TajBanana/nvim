@@ -71,6 +71,46 @@ expect(5, 0, 'block_mapping_pair', 4)
 expect(7, 0, 'block_mapping_pair', 6)
 expect(9, 0, 'block_mapping_pair', 8)
 expect(12, 0, 'block_sequence_item', 11)
+-- The compound YAML filetypes set.lua assigns (chart values, compose, GitLab CI)
+-- must scope exactly like plain yaml -- every row above, including the
+-- single-line-parent rows (2, 7, 9) where a non-YAML lookup picks another scope.
+-- yaml.other: any compound yaml.* filetype, not only the three set.lua assigns.
+for _, ft in ipairs({ 'yaml.helm-values', 'yaml.docker-compose', 'yaml.gitlab', 'yaml.other' }) do
+    buffer('yaml', ft, {
+        'services:', '  kafka:', '    image: kafka', '    ports:', '      - "9092:9092"',
+        '    environment:', '      NODE_ID: 1', '  ui:', '    image: ui',
+        'include:', '  - project: shared', '    ref: main',
+    })
+    expect(2, 0, 'block_mapping_pair', 2)
+    expect(3, 0, 'block_mapping_pair', 2)
+    expect(5, 0, 'block_mapping_pair', 4)
+    expect(7, 0, 'block_mapping_pair', 6)
+    expect(9, 0, 'block_mapping_pair', 8)
+    expect(12, 0, 'block_sequence_item', 11)
+end
+-- Brace literals: a multi-line Lua table / Python dict or list is its own
+-- scope (ibl's defaults only know statements and functions, so the guide used
+-- to jump out to the enclosing function); one-line literals are not.
+buffer('lua', 'lua', {
+    'vim.lsp.config("tailwindcss", {', '    root_dir = function(bufnr, on_dir)', '        local fname = 1',
+    '    end,', '    settings = {', '        a = 1,', '    },', '})',
+    'local function f()', '    local y = { b = 2 }', '    return y', 'end',
+})
+expect(1, 0, 'function_call', 1)
+expect(2, 0, 'table_constructor', 1)
+expect(2, 6, 'table_constructor', 1)
+expect(3, 0, 'function_definition', 2)
+expect(5, 0, 'table_constructor', 1)
+expect(6, 0, 'table_constructor', 5)
+expect(10, 0, 'function_declaration', 9)
+buffer('python', 'python', {
+    'def f():', '    d = {', '        "a": 1,', '        "b": [', '            2,', '        ],', '    }',
+    '    g(', '        1,', '    )', '    e = [1, 2]',
+})
+expect(3, 0, 'dictionary', 2)
+expect(5, 0, 'list', 4)
+expect(9, 0, 'call', 8)
+expect(11, 0, 'function_definition', 1)
 buffer('kotlin', 'kotlin', {
     'fun send() {', '    val event =', '        Event', '            .builder()', '            .build()',
     '    log.info(', '        "sent",', '        event.toString(),', '    )', '}',
@@ -159,7 +199,20 @@ for _, case in ipairs({
         expect_guide(helm, case[1], case[4])
     end
 end
-vim.bo.filetype = 'lua'
+-- The screenshot case: inside an indented `vim.lsp.config("x", { ... })`, the
+-- DRAWN scope guide sits at the table's column (4), not at the enclosing
+-- function's (0), which is where it went before tables were scopes.
+do
+    local buf = buffer('lua', 'lua', {
+        'local function setup()', '    vim.lsp.config("x", {', '        root_dir = function(bufnr)',
+        '            return bufnr', '        end,', '    })', 'end',
+    })
+    vim.bo.shiftwidth = 4
+    vim.bo.tabstop = 4
+    expect(3, 8, 'table_constructor', 2)
+    expect_guide(buf, 3, 4)
+end
+vim.bo.filetype = 'go'
 assert(scope.get_cursor_range(0)[2] == 0, 'unrelated filetypes must keep original cursor lookup')
 print(('PASS: %d scope checks plus unrelated-filetype fallback'):format(checks))
 vim.cmd('qa!')
