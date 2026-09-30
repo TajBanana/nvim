@@ -19,61 +19,106 @@ return {
 
             require("mason").setup()
 
-            local auto_enable_exclude = { "kotlin_lsp", "stylua", "tailwindcss" }
-            -- rust_analyzer's upstream lspconfig root_dir calls `rustc` to locate
-            -- the sysroot WITHOUT checking it exists (lsp/rust_analyzer.lua's
-            -- default_sysroot_src). With no Rust toolchain installed that raises
-            -- ENOENT from inside the FileType callback, which aborts the rest of
-            -- the BufReadPost/FileType chain for the buffer: a traceback on every
-            -- .rs file, and -- because treesitter's own FileType hook never runs --
-            -- Rust rendering as completely unhighlighted plain text.
-            -- Only enable the server when its toolchain is actually present.
-            if vim.fn.executable("rustc") ~= 1 or vim.fn.executable("cargo") ~= 1 then
-                table.insert(auto_enable_exclude, "rust_analyzer")
+            local servers = {
+                "ts_ls",
+                "lua_ls",
+                "jdtls",
+                "eslint",
+                "jsonls",
+                "tailwindcss", -- root gated below: Tailwind projects only
+                "yamlls",
+                -- kotlin_lsp is intentionally NOT listed: the JetBrains
+                -- intellij-server ships as a time-bombed EAP build that expires
+                -- ~monthly, and Mason's registry trails JetBrains by weeks -- often
+                -- it can only reinstall an already-expired build. It is
+                -- self-managed instead (see kotlin.lua's KOTLIN_LSP_DIR);
+                -- kotlin.nvim enables it, and the statusline shows a ⏱ when the
+                -- build has expired.
+                "dockerls",
+                "cssls",
+                "graphql",
+                "html",
+                "pyright",
+                "gopls",
+                "bashls",
+                "rust_analyzer",
+                "helm_ls",
+            }
+
+            -- automatic_enable is an ALLOW-list: only the servers above are ever
+            -- enabled. The default (every Mason package lspconfig recognises)
+            -- attached whatever else happened to be installed -- leftover
+            -- emmet_ls/gradle_ls/sqlls from :Mason experiments, and the stylua
+            -- FORMATTER (installed for conform) whose lspconfig `lsp/stylua.lua`
+            -- wrapper spawned `stylua --lsp` as a second formatting provider on
+            -- every Lua buffer. An exclude list had to chase each of those.
+            --
+            -- rust_analyzer is dropped without a toolchain: its upstream root_dir
+            -- calls `rustc` to locate the sysroot WITHOUT checking it exists, and
+            -- the ENOENT inside the FileType callback aborts the rest of that
+            -- buffer's FileType chain -- a traceback on every .rs file and, since
+            -- treesitter's hook never runs, completely unhighlighted Rust.
+            --
+            -- ensure_installed skips a server Mason would have to BUILD with a
+            -- toolchain this machine lacks (npm for ts_ls/pyright/bashls/...,
+            -- go for gopls, python3 for pypi, cargo for crates): the install
+            -- failed and was retried on every start. Read from the package's
+            -- Mason source id, so no hand-kept list goes stale; an already
+            -- installed server is kept. gopls is also not ENABLED without Go --
+            -- it cannot work without a Go toolchain.
+            local toolchain = { npm = "npm", golang = "go", pypi = "python3", cargo = "cargo" }
+            -- Fallback for a FIRST start on a fresh machine, before Mason has
+            -- downloaded its registry (get_package then fails, and the gate
+            -- used to let everything through): the source kind of each
+            -- configured server that needs a toolchain, as of 2026-09. Its npm
+            -- entries are mirrored by lsp_status.lua's NPM_SERVERS (the statusline
+            -- stops expecting them without npm).
+            local known_kind = {
+                gopls = "golang",
+                ts_ls = "npm", eslint = "npm", jsonls = "npm", tailwindcss = "npm", yamlls = "npm",
+                dockerls = "npm", cssls = "npm", graphql = "npm", html = "npm", pyright = "npm", bashls = "npm",
+            }
+            local function installable(server)
+                local ok, map = pcall(function()
+                    return require("mason-lspconfig").get_mappings().lspconfig_to_package
+                end)
+                local ok_reg, registry = pcall(require, "mason-registry")
+                local pkg_name = ok and map[server]
+                if ok_reg and pkg_name and registry.is_installed(pkg_name) then
+                    return true
+                end
+                local ok_pkg, pkg = false, nil
+                if ok_reg and pkg_name then
+                    ok_pkg, pkg = pcall(registry.get_package, pkg_name)
+                end
+                local kind = ok_pkg and pkg.spec.source.id:match("^pkg:(%w+)/") or known_kind[server]
+                local bin = kind and toolchain[kind]
+                return not bin or vim.fn.executable(bin) == 1
             end
+            local has_rust = vim.fn.executable("rustc") == 1 and vim.fn.executable("cargo") == 1
+            local has_go = vim.fn.executable("go") == 1
+            local installed = vim.tbl_filter(installable, servers)
+            local enabled = vim.tbl_filter(function(name)
+                return (name ~= "rust_analyzer" or has_rust) and (name ~= "gopls" or has_go)
+            end, servers)
 
             require("mason-lspconfig").setup({
-                ensure_installed = {
-                    "ts_ls",
-                    "lua_ls",
-                    "jdtls",
-                    "eslint",
-                    "jsonls",
-                    "tailwindcss",
-                    "yamlls",
-                    -- kotlin_lsp is intentionally NOT ensure_installed: the
-                    -- JetBrains intellij-server ships as a time-bombed EAP build
-                    -- that expires ~monthly, and Mason's registry trails JetBrains
-                    -- by weeks -- often it can only reinstall an already-expired
-                    -- build. It is self-managed instead (see kotlin.lua's
-                    -- KOTLIN_LSP_DIR); kotlin.nvim still enables it, and the
-                    -- statusline shows a ⏱ when the build has expired.
-                    "dockerls",
-                    "cssls",
-                    "graphql",
-                    "html",
-                    "pyright",
-                    "gopls",
-                    "bashls",
-                    "rust_analyzer",
-                    "helm_ls",
-                },
-                -- automatic_enable turns on every server Mason has installed that
-                -- lspconfig knows about -- not just ensure_installed. Several need
-                -- opting out:
-                --   kotlin_lsp  -- enabled by kotlin.nvim instead
-                --   stylua      -- a FORMATTER that lspconfig also ships an
-                --                  `lsp/stylua.lua` wrapper for, so Mason having it
-                --                  installed for conform spawned `stylua --lsp` as a
-                --                  second documentFormattingProvider on every Lua
-                --                  buffer alongside lua_ls
-                --   tailwindcss -- its lspconfig root_files ends with a bare `.git`
-                --                  fallback and its filetypes include markdown/html,
-                --                  so opening a README in ANY git repo (a pure Go or
-                --                  Java one included) spawned a ~97MB node server
-                --                  offering meaningless class completion
-                --   rust_analyzer (conditional, below)
-                automatic_enable = { exclude = auto_enable_exclude },
+                ensure_installed = installed,
+                automatic_enable = enabled,
+            })
+
+            -- tailwindcss only in actual Tailwind projects: upstream's root_dir
+            -- falls back to a bare `.git`, which spawned the server for every
+            -- README in every repo. See tajbanana/tailwind_root.lua; with no
+            -- Tailwind marker on_dir is never called and it does not start.
+            vim.lsp.config("tailwindcss", {
+                root_dir = function(bufnr, on_dir)
+                    local fname = vim.api.nvim_buf_get_name(bufnr)
+                    local root = fname ~= "" and require("tajbanana.tailwind_root").find(fname)
+                    if root then
+                        on_dir(root)
+                    end
+                end,
             })
 
             -- Set capabilities for all servers via wildcard
@@ -148,10 +193,9 @@ return {
                     -- veto exists to stop.
                     local ft = vim.bo[bufnr].filetype
                     if ft == "javascript" or ft == "javascriptreact" then
-                        for _, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, 40, false)) do
-                            if line:find("@flow", 1, true) then
-                                return -- no on_dir() => no ts_ls for this buffer
-                            end
+                        local lines = vim.api.nvim_buf_get_lines(bufnr, 0, 40, false)
+                        if require("tajbanana.flow_pragma").has_pragma(lines) then
+                            return -- no on_dir() => no ts_ls for this buffer
                         end
                     end
                     if upstream_ts_root_dir then
@@ -260,8 +304,10 @@ return {
 
                         -- kotlin-lsp stamps stale document versions on rename
                         -- edits (e.g. v27 while the buffer is at v35), so nvim
-                        -- rejects them with "Buffer newer than edits"; strip
-                        -- the version before applying
+                        -- rejects them with "Buffer newer than edits";
+                        -- overwrite each edit's version with the live buffer
+                        -- version before applying (stripping it to nil crashed
+                        -- nvim 0.12, which requires a number)
                         client.handlers["textDocument/rename"] = function(err, result)
                             if err then
                                 vim.notify("Rename failed: " .. (err.message or ""), vim.log.levels.ERROR)
@@ -301,13 +347,19 @@ return {
                     vim.keymap.set("n", "<leader>ti", toggle_inlay, opts("Toggle inlay hints"))
 
                     -- One flat picker with every LSP location for the symbol under the
-                    -- cursor, tagged by kind; type "def"/"type"/"impl"/"ref" to filter.
+                    -- cursor, tagged by kind. It opens in normal mode: press `i`, then
+                    -- type "def"/"type"/"impl"/"ref" to filter.
                     -- Extracted to tajbanana/definition_picker to keep this file declarative.
                     vim.keymap.set("n", "<leader>gd", require("tajbanana.definition_picker").open, opts("Go to def/type/impl/ref"))
-                    vim.keymap.set("n", "<leader>gi", vim.lsp.buf.implementation, opts("Go to implementation"))
+                    -- Telescope like <leader>gr: a picker with preview instead of the
+                    -- native quickfix dump; a single result still jumps directly.
+                    vim.keymap.set("n", "<leader>gi", function() require("telescope.builtin").lsp_implementations() end, opts("Go to implementation"))
                     vim.keymap.set("n", "<leader>gr", function() require("telescope.builtin").lsp_references() end, opts("Go to references"))
                     vim.keymap.set("n", "K", vim.lsp.buf.hover, opts("Hover docs"))
-                    vim.keymap.set("n", "<leader>vws", vim.lsp.buf.workspace_symbol, opts("Workspace symbols"))
+                    -- Live project-wide symbol search (IntelliJ Navigate -> Symbol):
+                    -- re-queries the server as you type, instead of the native
+                    -- blind `Query:` prompt followed by a quickfix list.
+                    vim.keymap.set("n", "<leader>vws", function() require("telescope.builtin").lsp_dynamic_workspace_symbols() end, opts("Workspace symbols"))
                     vim.keymap.set("n", "<leader>vd", vim.diagnostic.open_float, opts("Show diagnostic"))
                     vim.keymap.set("n", "]e", function() vim.diagnostic.jump({ count = 1 }) end, opts("Next diagnostic"))
                     vim.keymap.set("n", "[e", function() vim.diagnostic.jump({ count = -1 }) end, opts("Previous diagnostic"))

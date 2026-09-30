@@ -35,24 +35,43 @@ local function retint(buf)
     if not ok or #hints == 0 then
         return
     end
-    -- hints bucketed exactly like the renderer: by (line, character)
+    -- hints bucketed exactly like the renderer: by (line, character), each with
+    -- its label text as the renderer builds it (string, or parts joined)
     local by_pos = {}
     for _, h in ipairs(hints) do
         local p = h.inlay_hint.position
         local key = p.line .. ":" .. p.character
+        local label = h.inlay_hint.label
+        if type(label) ~= "string" then
+            local parts = {}
+            for _, part in ipairs(label) do
+                parts[#parts + 1] = part.value
+            end
+            label = table.concat(parts)
+        end
         by_pos[key] = by_pos[key] or {}
-        table.insert(by_pos[key], h.inlay_hint.kind)
+        table.insert(by_pos[key], { text = label, kind = h.inlay_hint.kind })
     end
     for _, em in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })) do
         local id, row, col, d = em[1], em[2], em[3], em[4]
-        local kinds = d.virt_text and by_pos[row .. ":" .. col]
-        if kinds then
-            -- chunks appear in hint order; padding chunks carry no group
-            local i, changed = 0, false
+        local entries = d.virt_text and by_pos[row .. ":" .. col]
+        if entries then
+            -- Match each chunk to a hint by its label TEXT, not by position:
+            -- core assembles the chunks with pairs() over clients, so when two
+            -- hints share a position their order is unspecified and a positional
+            -- pairing could swap the type and parameter colours. Padding chunks
+            -- carry no group. Each hint is consumed once (duplicate labels).
+            local used, changed = {}, false
             for _, chunk in ipairs(d.virt_text) do
                 if tintable[chunk[2]] then
-                    i = i + 1
-                    local want = kind_group[kinds[i]] or "LspInlayHint"
+                    local kind
+                    for j, e in ipairs(entries) do
+                        if not used[j] and e.text == chunk[1] then
+                            used[j], kind = true, e.kind
+                            break
+                        end
+                    end
+                    local want = kind_group[kind] or "LspInlayHint"
                     if chunk[2] ~= want then
                         chunk[2] = want
                         changed = true
