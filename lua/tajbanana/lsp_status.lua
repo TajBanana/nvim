@@ -93,6 +93,40 @@ local PRIMARY = {
 if vim.fn.executable("rustc") == 1 and vim.fn.executable("cargo") == 1 then
     PRIMARY.rust = "rust_analyzer"
 end
+-- Likewise gopls, which lsp.lua neither installs nor enables without Go.
+if vim.fn.executable("go") ~= 1 then
+    for _, ft in ipairs({ "go", "gomod", "gowork", "gotmpl" }) do
+        PRIMARY[ft] = nil
+    end
+end
+-- And the npm-built servers when npm is missing: lsp.lua's ensure_installed
+-- skips them then, so unless one is already installed (its binary is on PATH,
+-- which includes Mason's bin dir) it can never attach -- every TypeScript,
+-- JSON, YAML, CSS, HTML, Python, shell and Dockerfile buffer showed a red ✗.
+-- Keep this set in sync with the npm entries of lsp.lua's `known_kind`.
+-- server -> the binary it runs. Checked by NAME, not through the server's
+-- `cmd`: in lspconfig ts_ls, jsonls, yamlls, cssls and html have FUNCTION cmds,
+-- which an earlier version could not inspect and took as "can start" -- so
+-- those five still showed ✗ without npm.
+local NPM_SERVERS = {
+    ts_ls = "typescript-language-server",
+    jsonls = "vscode-json-language-server",
+    yamlls = "yaml-language-server",
+    cssls = "vscode-css-language-server",
+    html = "vscode-html-language-server",
+    pyright = "pyright-langserver",
+    bashls = "bash-language-server",
+    dockerls = "docker-langserver",
+    graphql = "graphql-lsp",
+}
+if vim.fn.executable("npm") ~= 1 then
+    for ft, server in pairs(PRIMARY) do
+        local bin = NPM_SERVERS[server]
+        if bin and vim.fn.executable(bin) ~= 1 then
+            PRIMARY[ft] = nil
+        end
+    end
+end
 
 -- Per-client set of open work-done progress tokens: active[client_id][token] =
 -- true while that operation is running. A client with any open token is still
@@ -201,7 +235,8 @@ local function current_installation()
         local dir = kotlin.resolve_kotlin_lsp_dir(mason, vim.fn.has("win32") == 1)
         if dir then return installation_info(dir) end
     end
-    return installation_info(vim.env.KOTLIN_LSP_DIR or vim.fn.expand("~/.local/share/kotlin-lsp/current"))
+    -- installation_info resolves the `current` symlink to the versioned build.
+    return installation_info(vim.env.KOTLIN_LSP_DIR or (require("tajbanana.kotlin_update").install_root() .. "/current"))
 end
 M._installation_info = installation_info
 
@@ -288,7 +323,7 @@ end
 -- few times, then give up quietly (the ⏱ stays and :KotlinLspUpdate still works).
 local expiry_prompt_tries = 0
 local function prompt_when_ready()
-    if vim.api.nvim_get_mode().mode:sub(1, 1) ~= "n" then
+    if not require("tajbanana.kotlin_update_prompt").can_show() then
         expiry_prompt_tries = expiry_prompt_tries + 1
         if expiry_prompt_tries <= 10 then
             vim.defer_fn(prompt_when_ready, 3000)
@@ -320,10 +355,26 @@ local function detect_expiry(bufnr)
         return
     end
     local tail = log_tail(vim.lsp.get_log_path(), 65536)
-    local expired_dir
+    local expired_dir, expired_at
     for line in tail:gmatch("[^\n]+") do
         if line:find("intellij-server has expired", 1, true) or line:find("kotlin-server has expired", 1, true) then
-            expired_dir = line:match('"([^"\t]+)[/\\]bin[/\\]intellij%-server[^"\t]*"') or expired_dir
+            local dir = line:match('"([^"\t]+)[/\\]bin[/\\]intellij%-server[^"\t]*"')
+            if dir then
+                expired_dir = dir
+                local y, mo, d, h, mi, sec = line:match("%[(%d+)%-(%d+)%-(%d+) (%d+):(%d+):(%d+)%]")
+                expired_at = y and os.time({ year = y, month = mo, day = d, hour = h, min = mi, sec = sec }) or nil
+            end
+        end
+    end
+    -- Launched through the `current` symlink (the self-managed setup), the log
+    -- line names `current`, not a version, so the version check below cannot
+    -- tell an old build's expiry from the new one's. The link's own mtime is
+    -- when it was last repointed: an expiry logged before that belongs to the
+    -- previous build -- ignore it (it used to show ⏱ for a freshly updated build).
+    if expired_dir and expired_at and vim.fs.basename(expired_dir) == "current" then
+        local link = vim.uv.fs_lstat(expired_dir)
+        if link and expired_at < link.mtime.sec then
+            expired_dir = nil
         end
     end
     if expired_dir then
