@@ -1,15 +1,29 @@
-# Default ignored files
-/shelf/
-/workspace.xml
-# Editor-based HTTP Client requests
-/httpRequests/
-# Datasource local storage ignored files
-/dataSources/
-/dataSources.local.xml
+# JetBrains project settings (IdeaVim is configured by .ideavimrc, not these)
 /.idea
 
-packer_compiled.lua
-.DS_store
+# macOS Finder metadata (capital S: a clone on case-sensitive WSL/Linux would
+# not match `.DS_store`)
+.DS_Store
+
+# Neovim writes these into the first 'runtimepath' dir, i.e. this repo
+/.netrwhist
+# compiled spell files; the `.add` word lists next to them are worth keeping
+/spell/*.spl
+Session.vim
+*.swp
+*.swo
+
+# Claude Code: personal / machine-local, not shared config
+/.claude/settings.local.json
+/.claude/worktrees/
+
+# skillforge runtime state (required by .skillforge/rules/repo-resolution; the
+# trailing slash keeps references/repos.yaml tracked)
+/references/repos/
+/.skillforge/locks/
 
 # Generated skillforge scaffolding (Copilot-convention symlinks mirroring .skillforge/)
 /.github/
+
+# Python bytecode from scripts/*.py and scripts/tests/*.py
+__pycache__/

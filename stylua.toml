@@ -4,8 +4,11 @@ indent_type = "Spaces"
 indent_width = 4
 quote_style = "AutoPreferDouble"
 call_parentheses = "Always"
-# The config uses single-line guards heavily (`if x then return y end`); keep
-# them so on-demand formatting doesn't explode every guard into three lines.
+# "Always" collapses simple guards onto one line (`if x then return y end`).
+# The hand-written code mostly uses EXPANDED guards, so formatting a file with
+# this setting rewrites guards you did not touch. 28 of 32 Lua files differ
+# (2026-09-30, stylua 2.5.2); this setting accounts for 10 of them, manual
+# alignment and wrapping for the rest. Stylua is therefore not enforced repo-wide; see CLAUDE.md.
 collapse_simple_statement = "Always"
 # Note: stylua does not preserve manual column alignment (aligned `=` and padded
 # table columns), so <leader>gf will de-align those. Indentation stays 4-space
