@@ -1,3 +1,14 @@
+-- INTENTIONALLY NOT WIRED IN. lsp.lua's <Tab>/<CR> call plain cmp.confirm.
+--
+-- This wraps cmp.confirm so accepting a value (variable/field/property/
+-- constant) skips one adjacent `)`: `obj.method(value|)` -> `obj.method(value)|`.
+-- The goal was smoother method chaining (`a.b(x).c(...)`). It was unwired in
+-- 051f59d because it misfires on calls with more than one parameter: accepting
+-- the FIRST argument jumps the cursor out of the parentheses, so typing the
+-- next argument means moving back inside every time. Kept (with its test,
+-- scripts/tests/completion.lua) so the behaviour can be revisited -- e.g. only
+-- skipping when the signature has a single parameter. See
+-- docs/design-decisions.md, "Completion: accepting a value stays inside `()`".
 local M = {}
 
 local function in_placeholder()

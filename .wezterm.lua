@@ -150,7 +150,7 @@ local function pane_dir_basename(pane)
     if path == "" or path == os.getenv("HOME") or path:match("^/home/[^/]+$") then
         return "~"
     end
-    return path:match("([^/]+)$") -- basename
+    return path:match("([^/\\]+)$") -- basename (either separator, like pane_prog)
 end
 
 -- Shells mean the tab is about a *place* → show the directory. A running TUI

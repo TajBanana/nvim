@@ -1,4 +1,7 @@
 -- Run: nvim --headless -u NONE -i NONE -l scripts/tests/completion.lua
+-- Tests lua/tajbanana/completion.lua, which is intentionally NOT wired into
+-- nvim-cmp (see that file's header); a pass here says nothing about runtime
+-- completion behaviour.
 vim.opt.rtp:prepend(vim.fn.getcwd())
 vim.o.virtualedit = 'onemore'
 local session = { current_nodes = {} }

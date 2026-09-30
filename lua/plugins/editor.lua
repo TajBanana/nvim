@@ -1,15 +1,17 @@
 return {
+    -- BufNewFile as well as BufReadPre: `:e brand_new.kt` fires only BufNewFile,
+    -- so a BufReadPre-only plugin never loaded in a new file (no ys/ds/cs). The
+    -- lsp.lua warning against BufNewFile is specific to nvim-lspconfig, which
+    -- must catch the buffer's own FileType; this only registers keymaps.
     {
         "kylechui/nvim-surround",
         version = "*",
-        event = "BufReadPre",
+        event = { "BufReadPre", "BufNewFile" },
         opts = {},
     },
-    {
-        "numToStr/Comment.nvim",
-        event = "BufReadPre",
-        opts = {},
-    },
+    -- Commenting uses Neovim's built-in gc/gcc/gc{motion} (0.10+), which is
+    -- treesitter-aware for embedded languages. Comment.nvim was dropped: its only
+    -- extras were block comments (gb/gbc) and gco/gcO/gcA, which weren't used.
     {
         "m4xshen/autoclose.nvim",
         event = "InsertEnter",
